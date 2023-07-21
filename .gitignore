@@ -1,0 +1,5 @@
+*.bin
+exports/
+.idea/
+launch.json
+the-mergerator
