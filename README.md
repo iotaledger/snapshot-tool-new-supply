@@ -1,5 +1,7 @@
 # The Mergerator
 
+> This tool is for internal use only, you must not share it with anyone outside the foundation!
+
 This tool generates the global snapshot for "The Merge" on the IOTA mainnet by doing following:
 
 1. Reads in a Chrysalis snapshot and converts the ledger to Stardust outputs, while also compressing dust outputs (
@@ -18,12 +20,13 @@ This tool generates the global snapshot for "The Merge" on the IOTA mainnet by d
 5. Writes out a blake2b-256 hash of the generated snapshot file.
 
 Todo:
+
 - [x] Chrysalis snapshot conversion
 - [x] ASMB staking import
 - [x] Vesting output generation
 - [x] Snapshot generation
 - [x] CSV exports
-   - [x] Schedule
-   - [x] Summaries (per group)
+    - [x] Schedule
+    - [x] Summaries (per group)
 - [x] Determinism
 - [ ] IF ASMB rewards
