@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hornet/pkg/model/hornet"
+	"github.com/iotaledger/hornet/v2/pkg/tpkg"
 	iotago2 "github.com/iotaledger/iota.go/v2"
 
 	chrysalisutxo "github.com/iotaledger/hornet/pkg/model/utxo"
@@ -48,44 +49,51 @@ type Config struct {
 		} `json:"rentStructure"`
 		TokenSupply string `json:"tokenSupply"`
 	} `json:"protocolParameters"`
-	TreasuryTokens             string `json:"treasuryTokens"`
-	ChrysalisSnapshotFile      string `json:"chrysalisSnapshotFile"`
-	OutputSnapshotFile         string `json:"outputSnapshotFile"`
-	NewSupplyOutputMarkerInput string `json:"newSupplyOutputMarkerInput"`
-	CSVExportFolder            string `json:"csvExportFolder"`
-	DoCSVExport                bool   `json:"doCSVExport"`
-	CheckSupplyOutcome         bool   `json:"checkSupplyOutcome"`
-	Allocations                struct {
-		VestingStartingDate time.Time `json:"vestingStartingDate"`
-		Assembly            struct {
-			Investors InvestorAllocations `json:"investors"`
-			Stakers   struct {
-				CSVFolderName string            `json:"csvFolderName"`
-				Tokens        string            `json:"tokens"`
-				RewardsDir    string            `json:"rewardsDir"`
-				Unlocks       FundsUnlockParams `json:"unlocks"`
-			} `json:"stakers"`
-		} `json:"assembly"`
-		NewInvestors  InvestorAllocations `json:"newInvestors"`
-		EcosystemFund struct {
-			CSVFolderName string            `json:"csvFolderName"`
-			Tokens        string            `json:"tokens"`
-			Address       string            `json:"address"`
-			Unlocks       FundsUnlockParams `json:"unlocks"`
-		} `json:"ecosystemFund"`
-		IOTAFoundation struct {
-			CSVFolderName string            `json:"csvFolderName"`
-			Tokens        string            `json:"tokens"`
-			Address       string            `json:"address"`
-			Unlocks       FundsUnlockParams `json:"unlocks"`
-		} `json:"iotaFoundation"`
-	} `json:"allocations"`
+	ValidateSupply bool   `json:"validateSupply"`
+	TreasuryTokens string `json:"treasuryTokens"`
+	Snapshot       struct {
+		ChrysalisSnapshotFile    string `json:"chrysalisSnapshotFile"`
+		OutputSnapshotFile       string `json:"outputSnapshotFile"`
+		SkipSnapshotGeneration   bool   `json:"skipSnapshotGeneration"`
+		GenesisMilestoneIndex    int    `json:"genesisMilestoneIndex"`
+		TargetMilestoneIndex     int    `json:"targetMilestoneIndex"`
+		TargetMilestoneTimestamp int    `json:"targetMilestoneTimestamp"`
+		TargetMilestoneID        string `json:"targetMilestoneID"`
+		LedgerMilestoneIndex     int    `json:"ledgerMilestoneIndex"`
+	} `json:"snapshot"`
+	CSV struct {
+		Export struct {
+			Active bool   `json:"active"`
+			Dir    string `json:"dir"`
+		} `json:"export"`
+		Import struct {
+			Active       bool   `json:"active"`
+			OutputMarker string `json:"outputMarker"`
+			LedgerFile   string `json:"ledgerFile"`
+		} `json:"import"`
+	} `json:"csv"`
+	Vesting struct {
+		StartingDate time.Time    `json:"startingDate"`
+		OutputMarker string       `json:"outputMarker"`
+		Allocations  []Allocation `json:"allocations"`
+	}
+	ParsedProtocolParameters           *iotago3.ProtocolParameters
+	MinCostPerTimelockedBasicOutput    uint64
+	MinCostPerNonTimelockedBasicOutput uint64
 }
 
-type FundsUnlockParams struct {
-	Frequency          string  `json:"frequency"`
-	InitialUnlock      float64 `json:"initialUnlock"`
-	VestingPeriodYears int     `json:"vestingPeriodYears"`
+type Allocation struct {
+	Name    string `json:"name"`
+	Unlocks struct {
+		Frequency          string  `json:"frequency"`
+		InitialUnlock      float64 `json:"initialUnlock"`
+		VestingPeriodYears int     `json:"vestingPeriodYears"`
+	} `json:"unlocks"`
+	Rewards *struct {
+		Tokens string `json:"tokens"`
+		Dir    string `json:"dir"`
+	} `json:"rewards"`
+	Addresses []AddrBalanceTuple
 }
 
 type AddrBalanceTuple struct {
@@ -99,12 +107,6 @@ var (
 	weeklyDuration  = dayDuration * 7
 	monthlyDuration = dayDuration * 30
 )
-
-type InvestorAllocations struct {
-	CSVFolderName string             `json:"csvFolderName"`
-	Unlocks       FundsUnlockParams  `json:"unlocks"`
-	Addresses     []AddrBalanceTuple `json:"addresses"`
-}
 
 func vestingIntervalFromStr(str string) time.Duration {
 	switch str {
@@ -120,10 +122,10 @@ func vestingIntervalFromStr(str string) time.Duration {
 }
 
 // generates the times at which funds for the given investor become unlocked.
-func vestingTimelocks(interval time.Duration, startDate time.Time, years int) []*iotago3.TimelockUnlockCondition {
+func vestingTimelocks(alloc Allocation, startDate time.Time) []*iotago3.TimelockUnlockCondition {
 	unlocks := make([]*iotago3.TimelockUnlockCondition, 0)
-	end := startDate.AddDate(years, 0, 0)
-	for date := startDate; date.Before(end); date = date.Add(interval) {
+	end := startDate.AddDate(alloc.Unlocks.VestingPeriodYears, 0, 0)
+	for date := startDate; date.Before(end); date = date.Add(vestingIntervalFromStr(alloc.Unlocks.Frequency)) {
 		unlocks = append(unlocks, &iotago3.TimelockUnlockCondition{UnixTime: uint32(date.Unix())})
 	}
 	return unlocks
@@ -292,6 +294,11 @@ func main() {
 	if err != nil {
 		log.Panicf("failed to serialize protocol parameters: %s", err)
 	}
+	cfg.ParsedProtocolParameters = &protoParams
+
+	r := cfg.ParsedProtocolParameters.RentStructure
+	cfg.MinCostPerTimelockedBasicOutput = uint64(r.VByteCost) * uint64((refTimelockedBasicOutput).VBytes(&r, nil))
+	cfg.MinCostPerNonTimelockedBasicOutput = uint64(r.VByteCost) * uint64((refNonTimelockedbasicOutput).VBytes(&r, nil))
 
 	chrysalisSnapshot := readChrysalisSnapshot(err, cfg)
 	beautifiedChrysalisStats, err := json.MarshalIndent(chrysalisSnapshot.Stats, "", " ")
@@ -307,10 +314,24 @@ func main() {
 	log.Printf("outputs count under Stardust %d (from %d previously)", len(stardustOutputs), chrysalisSnapshot.Stats.TotalOutputsCount)
 	log.Printf("converted output + ids hash: %s / %s", outputsHash(stardustOutputs), outputIDsHash(stardustOutputIDs))
 
-	log.Printf("generating outputs for supply increase with starting date %s", cfg.Allocations.VestingStartingDate)
+	log.Printf("generating outputs for supply increase with starting date %s", cfg.Vesting.StartingDate)
 	supplyIncreaseOutputIDs, supplyIncreaseOutputs := generateNewSupplyOutputs(cfg)
 	log.Printf("supply increase outputs + ids hash: %s / %s", outputsHash(supplyIncreaseOutputs), outputIDsHash(supplyIncreaseOutputIDs))
 	log.Printf("generated %d outputs for supply increase", len(supplyIncreaseOutputs))
+
+	var csvImportOutputIDs []iotago3.OutputID
+	var csvImportOutputs []iotago3.Output
+	if cfg.CSV.Import.Active {
+		log.Printf("generating outputs from %s", cfg.CSV.Import.LedgerFile)
+		csvImportOutputIDs, csvImportOutputs = generateCSVOutputs(cfg)
+		log.Printf("CSV import outputs + ids hash: %s / %s", outputsHash(csvImportOutputs), outputIDsHash(csvImportOutputIDs))
+		log.Printf("generated %d outputs from CSV import file", len(csvImportOutputs))
+	}
+
+	if cfg.SkipSnapshotGeneration {
+		log.Println("finished")
+		return
+	}
 
 	// create snapshot file
 	var targetIndex iotago3.MilestoneIndex
@@ -318,10 +339,21 @@ func main() {
 		Version:                  snapshot.SupportedFormatVersion,
 		Type:                     snapshot.Full,
 		GenesisMilestoneIndex:    0,
-		TargetMilestoneIndex:     iotago3.MilestoneIndex(chrysalisSnapshot.Header.SEPMilestoneIndex),
-		TargetMilestoneTimestamp: uint32(chrysalisSnapshot.Header.Timestamp),
-		TargetMilestoneID:        iotago3.MilestoneID{},
-		LedgerMilestoneIndex:     iotago3.MilestoneIndex(chrysalisSnapshot.Header.LedgerMilestoneIndex),
+		TargetMilestoneIndex:     iotago3.MilestoneIndex(cfg.Snapshot.TargetMilestoneIndex),
+		TargetMilestoneTimestamp: uint32(cfg.Snapshot.TargetMilestoneTimestamp),
+		TargetMilestoneID: func() iotago3.MilestoneID {
+			if len(cfg.Snapshot.TargetMilestoneID) == 0 {
+				return iotago3.MilestoneID{}
+			}
+			milestoneIDBytes, err := iotago3.DecodeHex(cfg.Snapshot.TargetMilestoneID)
+			if err != nil {
+				log.Panicf("unable to convert target milestone ID %s: %s", cfg.Snapshot.TargetMilestoneID, err)
+			}
+			var msID iotago3.MilestoneID
+			copy(msID[:], milestoneIDBytes)
+			return msID
+		}(),
+		LedgerMilestoneIndex: iotago3.MilestoneIndex(chrysalisSnapshot.Header.LedgerMilestoneIndex),
 		TreasuryOutput: &utxo.TreasuryOutput{
 			MilestoneID: chrysalisSnapshot.Header.TreasuryOutput.MilestoneID,
 			Amount:      treasuryTokens,
@@ -349,7 +381,7 @@ func main() {
 	}
 
 	// unspent transaction outputs
-	var chrysalisLedgerIndex, supplyIncreaseOutputsIndex int
+	var chrysalisLedgerIndex, supplyIncreaseOutputsIndex, csvImportOutputsIndex int
 	var nonTreasuryOutputsSupplyTotal uint64
 	outputProducerFunc := func() (*utxo.Output, error) {
 
@@ -374,6 +406,18 @@ func main() {
 				supplyIncreaseOutputs[supplyIncreaseOutputsIndex])
 			nonTreasuryOutputsSupplyTotal += output.Deposit()
 			supplyIncreaseOutputsIndex++
+			return output, nil
+		}
+
+		if len(csvImportOutputIDs) > 0 && csvImportOutputsIndex < len(csvImportOutputs) {
+			output := utxo.CreateOutput(
+				csvImportOutputIDs[csvImportOutputsIndex],
+				iotago3.EmptyBlockID(),
+				0,
+				0,
+				csvImportOutputs[csvImportOutputsIndex])
+			nonTreasuryOutputsSupplyTotal += output.Deposit()
+			csvImportOutputsIndex++
 			return output, nil
 		}
 
@@ -414,7 +458,7 @@ func main() {
 		log.Panicf("unable to close snapshot file: %s", err)
 	}
 
-	if cfg.CheckSupplyOutcome {
+	if cfg.ValidateSupply {
 		if protoParams.TokenSupply != nonTreasuryOutputsSupplyTotal+treasuryTokens {
 			log.Panicf("supply defined in protocol parameters does not match supply within generated snapshot! %d vs. %d", protoParams.TokenSupply, nonTreasuryOutputsSupplyTotal+treasuryTokens)
 		}
@@ -449,6 +493,49 @@ func main() {
 	log.Printf("total outputs written to snapshot: %d", len(stardustOutputs)+len(supplyIncreaseOutputs))
 }
 
+func generateCSVOutputs(cfg *Config) ([]iotago3.OutputID, []iotago3.Output) {
+	csvImportFile, err := os.Open(cfg.CSV.Import.LedgerFile)
+	if err != nil {
+		log.Panicf("unable to open CSV import file: %s", err)
+	}
+	defer func(csvImportFile *os.File) {
+		if err := csvImportFile.Close(); err != nil {
+			log.Panicf("unable to close CSV import file: %s", err)
+		}
+	}(csvImportFile)
+
+	var currentOutputIndex uint32
+	outputMarker := blake2b.Sum256([]byte(cfg.CSV.Import.OutputMarker))
+	log.Printf("using marker '%s' to mark CSV import outputs", iotago3.EncodeHex(outputMarker[:]))
+
+	rows, err := csv.NewReader(csvImportFile).ReadAll()
+	if err != nil {
+		log.Panicf("unable to read rows from import CSV file: %s", err)
+	}
+
+	outputIDs := make([]iotago3.OutputID, 0)
+	outputs := make([]iotago3.Output, 0)
+
+	for i, row := range rows {
+		hexAddrStr, balanceStr := row[0], row[1]
+		edAddr := iotago3.Ed25519Address{}
+		addrBytes, err := iotago3.DecodeHex(hexAddrStr)
+		if err != nil {
+			log.Panicf("unable to convert CSV address at row %d: %s", i+1, err)
+		}
+		copy(edAddr[:], addrBytes)
+		outputs = append(outputs, &iotago3.BasicOutput{
+			Amount: mustParseUint64(balanceStr),
+			Conditions: iotago3.UnlockConditions{
+				&iotago3.AddressUnlockCondition{Address: &edAddr},
+			},
+		})
+		outputIDs = append(outputIDs, newOutputIDFromMarker(outputMarker[:], &currentOutputIndex))
+	}
+
+	return outputIDs, outputs
+}
+
 func outputIDsHash(outputIDs []iotago3.OutputID) string {
 	h, _ := blake2b.New256(nil)
 	for _, outputID := range outputIDs {
@@ -476,55 +563,18 @@ func generateNewSupplyOutputs(cfg *Config) ([]iotago3.OutputID, []iotago3.Output
 	allOutputs := make([]iotago3.Output, 0)
 
 	var currentOutputIndex uint32
-	supplyIncreaseMarker := blake2b.Sum256([]byte(cfg.NewSupplyOutputMarkerInput))
-	log.Printf("using marker '%s' to mark supply increase outputs", iotago3.EncodeHex(supplyIncreaseMarker[:]))
+	outputMarker := blake2b.Sum256([]byte(cfg.Vesting.OutputMarker))
+	log.Printf("using marker '%s' to mark supply increase outputs", iotago3.EncodeHex(outputMarker[:]))
 
-	// new investors
-	outputIDs, outputs := generateOutputsForGroup(cfg.Allocations.NewInvestors, cfg, supplyIncreaseMarker[:], &currentOutputIndex)
-	allOutputIDs = append(allOutputIDs, outputIDs...)
-	allOutputs = append(allOutputs, outputs...)
-
-	// assembly investors
-	outputIDs, outputs = generateOutputsForGroup(cfg.Allocations.Assembly.Investors, cfg, supplyIncreaseMarker[:], &currentOutputIndex)
-	allOutputIDs = append(allOutputIDs, outputIDs...)
-	allOutputs = append(allOutputs, outputs...)
-
-	// assembly stakers
-	assemblyStakers := readAssemblyStakingRewards(cfg)
-	log.Printf("there are %d unique assembly staker addresses", len(assemblyStakers))
-	outputIDs, outputs = generateOutputsForGroup(InvestorAllocations{
-		CSVFolderName: cfg.Allocations.Assembly.Stakers.CSVFolderName,
-		Unlocks:       cfg.Allocations.Assembly.Stakers.Unlocks,
-		Addresses:     assemblyStakers,
-	}, cfg, supplyIncreaseMarker[:], &currentOutputIndex)
-	allOutputIDs = append(allOutputIDs, outputIDs...)
-	allOutputs = append(allOutputs, outputs...)
-
-	// ecosystem fund
-	outputIDs, outputs = generateOutputsForGroup(InvestorAllocations{
-		CSVFolderName: cfg.Allocations.EcosystemFund.CSVFolderName,
-		Unlocks:       cfg.Allocations.EcosystemFund.Unlocks,
-		Addresses: []AddrBalanceTuple{{
-			Name:    "",
-			Address: cfg.Allocations.EcosystemFund.Address,
-			Tokens:  cfg.Allocations.EcosystemFund.Tokens,
-		}},
-	}, cfg, supplyIncreaseMarker[:], &currentOutputIndex)
-	allOutputIDs = append(allOutputIDs, outputIDs...)
-	allOutputs = append(allOutputs, outputs...)
-
-	// iota foundation
-	outputIDs, outputs = generateOutputsForGroup(InvestorAllocations{
-		CSVFolderName: cfg.Allocations.IOTAFoundation.CSVFolderName,
-		Unlocks:       cfg.Allocations.IOTAFoundation.Unlocks,
-		Addresses: []AddrBalanceTuple{{
-			Name:    "",
-			Address: cfg.Allocations.IOTAFoundation.Address,
-			Tokens:  cfg.Allocations.IOTAFoundation.Tokens,
-		}},
-	}, cfg, supplyIncreaseMarker[:], &currentOutputIndex)
-	allOutputIDs = append(allOutputIDs, outputIDs...)
-	allOutputs = append(allOutputs, outputs...)
+	for _, alloc := range cfg.Vesting.Allocations {
+		if alloc.Rewards != nil {
+			alloc.Addresses = readRewards(alloc)
+			log.Printf("there are %d unique addresses for '%s' receiving rewards", len(alloc.Addresses), alloc.Name)
+		}
+		outputIDs, outputs := generateOutputsForGroup(alloc, cfg, outputMarker[:], &currentOutputIndex)
+		allOutputIDs = append(allOutputIDs, outputIDs...)
+		allOutputs = append(allOutputs, outputs...)
+	}
 
 	return allOutputIDs, allOutputs
 }
@@ -537,13 +587,13 @@ func mustParseUint64(str string) uint64 {
 	return num
 }
 
-func generateOutputsForGroup(alloc InvestorAllocations, cfg *Config, supplyIncreaseMarker []byte,
+func generateOutputsForGroup(alloc Allocation, cfg *Config, supplyIncreaseMarker []byte,
 	currentOutputIndex *uint32,
 ) ([]iotago3.OutputID, []iotago3.Output) {
 	outputIDs := make([]iotago3.OutputID, 0)
 	outputs := make([]iotago3.Output, 0)
 
-	targetDir := path.Join(cfg.CSVExportFolder, alloc.CSVFolderName)
+	targetDir := path.Join(cfg.CSV.Export.Dir, alloc.Name)
 	_ = os.MkdirAll(targetDir, 0777)
 	unlockAccumBalance := map[uint32]uint64{}
 	for _, addrTuple := range alloc.Addresses {
@@ -554,9 +604,7 @@ func generateOutputsForGroup(alloc InvestorAllocations, cfg *Config, supplyIncre
 		}
 
 		newOutputIDs, newOutputs, timelocks := generateVestingOutputs(
-			targetAddr, alloc.Unlocks.Frequency, cfg.Allocations.VestingStartingDate,
-			alloc.Unlocks.VestingPeriodYears, mustParseUint64(addrTuple.Tokens), alloc.Unlocks.InitialUnlock,
-			supplyIncreaseMarker, currentOutputIndex,
+			cfg, targetAddr, alloc, mustParseUint64(addrTuple.Tokens), supplyIncreaseMarker, currentOutputIndex,
 		)
 
 		unlockAccumBalance[0] += newOutputs[0].Deposit()
@@ -574,7 +622,7 @@ func generateOutputsForGroup(alloc InvestorAllocations, cfg *Config, supplyIncre
 }
 
 func writeSummaryCSV(cfg *Config, timelocksAndFunds map[uint32]uint64, fileName string) {
-	if !cfg.DoCSVExport {
+	if !cfg.CSV.Export.Active {
 		return
 	}
 	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0777)
@@ -616,7 +664,7 @@ func writeSummaryCSV(cfg *Config, timelocksAndFunds map[uint32]uint64, fileName 
 }
 
 func writeOutputsCSV(cfg *Config, outputIDs []iotago3.OutputID, outputs []iotago3.Output, fileName string) {
-	if !cfg.DoCSVExport {
+	if !cfg.CSV.Export.Active {
 		return
 	}
 	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0777)
@@ -648,18 +696,17 @@ func writeOutputsCSV(cfg *Config, outputIDs []iotago3.OutputID, outputs []iotago
 	}
 }
 
-func readAssemblyStakingRewards(cfg *Config) []AddrBalanceTuple {
-	rewardsDir := cfg.Allocations.Assembly.Stakers.RewardsDir
-	files, err := os.ReadDir(rewardsDir)
+func readRewards(alloc Allocation) []AddrBalanceTuple {
+	files, err := os.ReadDir(alloc.Rewards.Dir)
 	if err != nil {
-		log.Panicf("unable to read assembly stakers directory: %s", err)
+		log.Panicf("unable to read rewards directory: %s", err)
 	}
 
 	type rewards struct {
 		Rewards map[string]uint64 `json:"rewards"`
 	}
 
-	var totalAssemblyRewards uint64
+	var totalRewards uint64
 	accumulatedRewardsPerAddress := make(map[string]uint64)
 	for _, f := range files {
 		if f.IsDir() {
@@ -667,18 +714,18 @@ func readAssemblyStakingRewards(cfg *Config) []AddrBalanceTuple {
 		}
 
 		r := &rewards{}
-		if err := ioutils.ReadJSONFromFile(path.Join(rewardsDir, f.Name()), r); err != nil {
-			log.Panicf("unable to open assembly rewards file %s: %s", f.Name(), err)
+		if err := ioutils.ReadJSONFromFile(path.Join(alloc.Rewards.Dir, f.Name()), r); err != nil {
+			log.Panicf("unable to open rewards file %s: %s", f.Name(), err)
 		}
 
 		for k, v := range r.Rewards {
-			totalAssemblyRewards += v
+			totalRewards += v
 			accumulatedRewardsPerAddress[k] += v
 		}
 	}
-	log.Printf("total assembly rewards %d on %d addresses", totalAssemblyRewards, len(accumulatedRewardsPerAddress))
+	log.Printf("total rewards %d on %d addresses", totalRewards, len(accumulatedRewardsPerAddress))
 
-	iotaTokensToDistribute := mustParseUint64(cfg.Allocations.Assembly.Stakers.Tokens)
+	iotaTokensToDistribute := mustParseUint64(alloc.Rewards.Tokens)
 	remainder := iotaTokensToDistribute
 
 	type balancetuple struct {
@@ -692,10 +739,10 @@ func readAssemblyStakingRewards(cfg *Config) []AddrBalanceTuple {
 	for addr, assemblyRewards := range accumulatedRewardsPerAddress {
 		addr, err := parseAddress(addr)
 		if err != nil {
-			log.Panicf("unable to parse assembly staker address %s: %s", addr, err)
+			log.Panicf("unable to parse reward address %s: %s", addr, err)
 		}
 
-		iotaRewardsFloat64 := float64(iotaTokensToDistribute) * (float64(assemblyRewards) / float64(totalAssemblyRewards))
+		iotaRewardsFloat64 := float64(iotaTokensToDistribute) * (float64(assemblyRewards) / float64(totalRewards))
 		iotaRewards := uint64(iotaRewardsFloat64)
 		remainder -= iotaRewards
 		tuples = append(tuples, balancetuple{addr, assemblyRewards, iotaRewards, iotaRewardsFloat64 - float64(iotaRewards)})
@@ -722,7 +769,7 @@ func readAssemblyStakingRewards(cfg *Config) []AddrBalanceTuple {
 	}
 
 	if iotaRewardsControl != iotaTokensToDistribute {
-		log.Panicf("total funds distributed to assembly stakers %d != %d", iotaRewardsControl, cfg.Allocations.Assembly.Stakers.Tokens)
+		log.Panicf("total rewards distributed to addresses %d != %d", iotaRewardsControl, mustParseUint64(alloc.Rewards.Tokens))
 	}
 
 	// make address tuples ordering deterministic
@@ -733,28 +780,43 @@ func readAssemblyStakingRewards(cfg *Config) []AddrBalanceTuple {
 	return addresses
 }
 
-func generateVestingOutputs(
-	target iotago3.Address, unlockFreq string, startDate time.Time,
-	years int, vestedTokens uint64, initialUnlockPerc float64,
-	supplyIncreaseMarker []byte, outputIndex *uint32,
-) ([]iotago3.OutputID, []iotago3.Output, []*iotago3.TimelockUnlockCondition) {
-	investorTimelocks := vestingTimelocks(vestingIntervalFromStr(unlockFreq), startDate, years)
+// sample output for storage deposit calculation
+var refTimelockedBasicOutput = &iotago3.BasicOutput{
+	Conditions: iotago3.UnlockConditions{
+		&iotago3.AddressUnlockCondition{Address: tpkg.RandAddress(iotago3.AddressEd25519)},
+		&iotago3.TimelockUnlockCondition{UnixTime: 1337},
+	},
+}
 
-	initialUnlock := uint64(float64(vestedTokens) * initialUnlockPerc)
+var refNonTimelockedbasicOutput = &iotago3.BasicOutput{
+	Conditions: iotago3.UnlockConditions{
+		&iotago3.AddressUnlockCondition{Address: tpkg.RandAddress(iotago3.AddressEd25519)},
+	},
+}
+
+func generateVestingOutputs(
+	cfg *Config, target iotago3.Address, alloc Allocation,
+	vestedTokens uint64, supplyIncreaseMarker []byte, outputIndex *uint32,
+) ([]iotago3.OutputID, []iotago3.Output, []*iotago3.TimelockUnlockCondition) {
+	investorTimelocks := vestingTimelocks(alloc, cfg.Vesting.StartingDate)
+
+	var controlSum uint64
+	initialUnlock := uint64(float64(vestedTokens) * alloc.Unlocks.InitialUnlock)
 	initialUnlock += (vestedTokens - initialUnlock) % uint64(len(investorTimelocks))
 	fundsPerUnlock := (vestedTokens - initialUnlock) / uint64(len(investorTimelocks))
 
 	// initial unlock output
-	outputIDs := []iotago3.OutputID{newVestingOutputID(supplyIncreaseMarker, outputIndex)}
+	outputIDs := []iotago3.OutputID{newOutputIDFromMarker(supplyIncreaseMarker, outputIndex)}
 	outputs := []iotago3.Output{
 		&iotago3.BasicOutput{
 			Amount:     initialUnlock,
 			Conditions: iotago3.UnlockConditions{&iotago3.AddressUnlockCondition{Address: target}},
 		},
 	}
+	controlSum += initialUnlock
 
 	for i := 0; i < len(investorTimelocks); i++ {
-		outputID := newVestingOutputID(supplyIncreaseMarker, outputIndex)
+		outputID := newOutputIDFromMarker(supplyIncreaseMarker, outputIndex)
 		outputIDs = append(outputIDs, outputID)
 		outputs = append(outputs, &iotago3.BasicOutput{
 			Amount: fundsPerUnlock,
@@ -762,12 +824,17 @@ func generateVestingOutputs(
 				&iotago3.AddressUnlockCondition{Address: target}, investorTimelocks[i],
 			},
 		})
+		controlSum += fundsPerUnlock
+	}
+
+	if controlSum != vestedTokens {
+		log.Panicf("control sum for vested outputs is not equal defined token amount: %d vs. %d", controlSum, vestedTokens)
 	}
 
 	return outputIDs, outputs, investorTimelocks
 }
 
-func newVestingOutputID(supplyIncreaseMarker []byte, outputIndex *uint32) iotago3.OutputID {
+func newOutputIDFromMarker(supplyIncreaseMarker []byte, outputIndex *uint32) iotago3.OutputID {
 	outputID := iotago3.OutputID{}
 	// 30 bytes marker, 4 bytes for index
 	copy(outputID[:], supplyIncreaseMarker[:len(supplyIncreaseMarker)-2])

@@ -19,6 +19,10 @@ This tool generates the global snapshot for "The Merge" on the IOTA mainnet by d
 4. Exports all generated outputs as CSV files in the configured folders (if enabled in the config).
 5. Writes out a blake2b-256 hash of the generated snapshot file.
 
+Optionally, the snapshot can be augmented with a CSV import file with following format: "address,balance" where
+`address` is a hex encoded address with 0x prefix. For example "
+0xd4b43b68f8184eaf9007a48debfd5e28f634626ac64c36c9e58540f4a2f64ce2,1337"
+
 Todo:
 
 - [x] Chrysalis snapshot conversion
@@ -29,4 +33,5 @@ Todo:
     - [x] Schedule
     - [x] Summaries (per group)
 - [x] Determinism
+- [x] Add CSV import for balance of testing scenarios
 - [ ] IF ASMB rewards

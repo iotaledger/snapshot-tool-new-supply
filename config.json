@@ -3,7 +3,7 @@
     "version": 1,
     "networkName": "stardust-mainnet",
     "bech32Hrp": "iota",
-    "minPowScore": 4000,
+    "minPowScore": 1500,
     "belowMaxDepth": 15,
     "rentStructure": {
       "vByteCost": 100,
@@ -12,18 +12,47 @@
     },
     "tokenSupply": "4292657708000000"
   },
-  "chrysalisSnapshotFile": "chrysalis_snapshot_file.bin",
-  "outputSnapshotFile": "the_merge_snapshot.bin",
-  "newSupplyOutputMarkerInput": "themerge",
-  "csvExportFolder": "./exports",
-  "doCSVExport": false,
-  "checkSupplyOutcome": false,
+  "validateSupply": false,
   "treasuryTokens": "100000",
-  "allocations": {
-    "vestingStartingDate": "2023-09-01T00:00:00+00:00",
-    "assembly": {
-      "investors": {
-        "csvFolderName": "./assembly_investors",
+  "snapshot": {
+    "skipSnapshotGeneration": true,
+    "chrysalisSnapshotFile": "chrysalis_snapshot_file.bin",
+    "outputSnapshotFile": "the_merge_snapshot.bin",
+    "genesisMilestoneIndex": 0,
+    "targetMilestoneIndex": 0,
+    "targetMilestoneTimestamp": 0,
+    "targetMilestoneID": "",
+    "ledgerMilestoneIndex": 0
+  },
+  "csv": {
+    "export": {
+      "active": false,
+      "dir": "./exports"
+    },
+    "import": {
+      "active": true,
+      "outputMarker": "testOutputs",
+      "ledgerFile": "./import.csv"
+    }
+  },
+  "vesting": {
+    "startDate": "2023-09-01T00:00:00+00:00",
+    "outputMarker": "themerge",
+    "allocations": [
+      {
+        "name": "assembly_stakers",
+        "unlocks": {
+          "frequency": "weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 2
+        },
+        "rewards": {
+          "tokens": "10000000000",
+          "dir": "./assembly_staking_rewards"
+        }
+      },
+      {
+        "name": "assembly_investors",
         "unlocks": {
           "frequency": "weekly",
           "initialUnlock": 0.10,
@@ -47,61 +76,61 @@
           }
         ]
       },
-      "stakers": {
-        "csvFolderName": "./assembly_stakers",
+      {
+        "name": "funding_investors",
         "unlocks": {
           "frequency": "weekly",
           "initialUnlock": 0.10,
           "vestingPeriodYears": 2
         },
-        "tokens": "10000000000",
-        "rewardsDir": "./assembly_staking_rewards"
-      }
-    },
-    "newInvestors": {
-      "csvFolderName": "./new_investors",
-      "unlocks": {
-        "frequency": "weekly",
-        "initialUnlock": 0.10,
-        "vestingPeriodYears": 2
+        "addresses": [
+          {
+            "name": "Eclipse Equity Partners",
+            "address": "rms1qp3whxy4ym7mrpzecgxyem2ude2vxt2mx89m2me296en8lryddr7juycfnm",
+            "tokens": "2000"
+          },
+          {
+            "name": "Catalyst Capital Group",
+            "address": "rms1qpn5vna9yllp6skk4s6zxwjerz3et80m8cmf3f555qzrukgcru36gfjztjw",
+            "tokens": "4000"
+          },
+          {
+            "name": "Nebula Nexus Investments",
+            "address": "rms1qrh6rh4sfjj90853vzsvcu5556yt9m7rzzqe7ru9cept3gr2j5mqv7a4ehf",
+            "tokens": "6000"
+          }
+        ]
       },
-      "addresses": [
-        {
-          "name": "Eclipse Equity Partners",
-          "address": "rms1qp3whxy4ym7mrpzecgxyem2ude2vxt2mx89m2me296en8lryddr7juycfnm",
-          "tokens": "2000"
+      {
+        "name": "ecosystem_fund",
+        "unlocks": {
+          "frequency": "weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 4
         },
-        {
-          "name": "Catalyst Capital Group",
-          "address": "rms1qpn5vna9yllp6skk4s6zxwjerz3et80m8cmf3f555qzrukgcru36gfjztjw",
-          "tokens": "4000"
+        "addresses": [
+          {
+            "name": "Eclipse Equity Partners",
+            "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
+            "tokens": "1352187178"
+          }
+        ]
+      },
+      {
+        "name": "iota_foundation",
+        "unlocks": {
+          "frequency": "weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 4
         },
-        {
-          "name": "Nebula Nexus Investments",
-          "address": "rms1qrh6rh4sfjj90853vzsvcu5556yt9m7rzzqe7ru9cept3gr2j5mqv7a4ehf",
-          "tokens": "6000"
-        }
-      ]
-    },
-    "ecosystemFund": {
-      "csvFolderName": "./ecosystem_fund",
-      "tokens": "1352187178",
-      "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
-      "unlocks": {
-        "frequency": "weekly",
-        "initialUnlock": 0.10,
-        "vestingPeriodYears": 4
+        "addresses": [
+          {
+            "name": "Eclipse Equity Partners",
+            "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
+            "tokens": "214632885"
+          }
+        ]
       }
-    },
-    "iotaFoundation": {
-      "csvFolderName": "./ecosystem_fund",
-      "tokens": "214632885",
-      "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
-      "unlocks": {
-        "frequency": "weekly",
-        "initialUnlock": 0.10,
-        "vestingPeriodYears": 4
-      }
-    }
+    ]
   }
 }
