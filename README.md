@@ -10,7 +10,7 @@ This tool generates the global snapshot for "The Merge" on the IOTA mainnet by d
 2. Generates outputs for the new supply by reading in the config where one can define the vesting periods, initial
    unlock percentage and the unlock frequency (daily, weekly, monthly). This step also uses Assembly staking round
    results added in the corresponding folder, where the rewards are distributed pro rata of the defined allocated IOTA
-   tokens for the stakers.
+   tokens for the stakers. Same applies to IF member rewards.
 3. Writes out the outputs into a Stardust snapshot while retaining the same output IDs for the outputs stemming from the
    Chrysalis snapshot and using a special marker output ID which is the blake2b-256 hash of the in the config defined
    input text (default "themerge", resulting in `0xb191c4bc825ac6983789e50545d5ef07a1d293a98ad974fc9498cb1807f08346`)
@@ -34,4 +34,5 @@ Todo:
     - [x] Summaries (per group)
 - [x] Determinism
 - [x] Add CSV import for balance of testing scenarios
-- [ ] IF ASMB rewards
+- [x] IF ASMB rewards
+- [ ] Tested

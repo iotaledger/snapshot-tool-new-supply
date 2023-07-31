@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/hive.go/core/ioutils"
@@ -93,6 +94,11 @@ type Allocation struct {
 		Tokens string `json:"tokens"`
 		Dir    string `json:"dir"`
 	} `json:"rewards"`
+	Distribution *struct {
+		Exclude map[string]int `json:"exclude"`
+		Tokens  string         `json:"tokens"`
+		File    string         `json:"file"`
+	} `json:"distribution"`
 	Addresses []AddrBalanceTuple
 }
 
@@ -131,20 +137,10 @@ func vestingTimelocks(alloc Allocation, startDate time.Time) []*iotago3.Timelock
 	return unlocks
 }
 
-func parseAddress(bech32Address string) (iotago3.Address, error) {
+func parseBech32Address(bech32Address string) (iotago3.Address, error) {
 	_, address, err := iotago3.ParseBech32(bech32Address)
 	if err != nil {
-		bech32Address = strings.TrimPrefix(bech32Address, "0x")
-
-		if len(bech32Address) != iotago3.Ed25519AddressBytesLength*2 {
-			return nil, err
-		}
-
-		// try parsing as hex
-		address, err = iotago3.ParseEd25519AddressFromHexString("0x" + bech32Address)
-		if err != nil {
-			return nil, err
-		}
+		log.Panicf("unable to convert bech32 address '%s': %s", bech32Address, err)
 	}
 
 	return address, nil
@@ -568,8 +564,14 @@ func generateNewSupplyOutputs(cfg *Config) ([]iotago3.OutputID, []iotago3.Output
 
 	for _, alloc := range cfg.Vesting.Allocations {
 		if alloc.Rewards != nil {
-			alloc.Addresses = readRewards(alloc)
-			log.Printf("there are %d unique addresses for '%s' receiving rewards", len(alloc.Addresses), alloc.Name)
+			asmbTokensTotal, asmbTokensPerAddr := readAssemblyRewardFiles(cfg, alloc)
+			alloc.Addresses = convertAssemblyToIOTA(mustParseUint64(alloc.Rewards.Tokens), asmbTokensTotal, asmbTokensPerAddr)
+			log.Printf("there are %d addresses for '%s' receiving assembly rewards", len(alloc.Addresses), alloc.Name)
+		}
+		if alloc.Distribution != nil {
+			asmbTokensTotal, asmbTokensPerAddr := readAssemblyDistributionFile(cfg, alloc)
+			alloc.Addresses = convertAssemblyToIOTA(mustParseUint64(alloc.Distribution.Tokens), asmbTokensTotal, asmbTokensPerAddr)
+			log.Printf("there are %d addresses for '%s' assembly distribution", len(alloc.Addresses), alloc.Name)
 		}
 		outputIDs, outputs := generateOutputsForGroup(alloc, cfg, outputMarker[:], &currentOutputIndex)
 		allOutputIDs = append(allOutputIDs, outputIDs...)
@@ -598,7 +600,7 @@ func generateOutputsForGroup(alloc Allocation, cfg *Config, supplyIncreaseMarker
 	unlockAccumBalance := map[uint32]uint64{}
 	for _, addrTuple := range alloc.Addresses {
 
-		targetAddr, err := parseAddress(addrTuple.Address)
+		targetAddr, err := parseBech32Address(addrTuple.Address)
 		if err != nil {
 			log.Panicf("unable to parse address %s: %s", addrTuple.Address, err)
 		}
@@ -696,7 +698,7 @@ func writeOutputsCSV(cfg *Config, outputIDs []iotago3.OutputID, outputs []iotago
 	}
 }
 
-func readRewards(alloc Allocation) []AddrBalanceTuple {
+func readAssemblyRewardFiles(cfg *Config, alloc Allocation) (uint64, map[string]uint64) {
 	files, err := os.ReadDir(alloc.Rewards.Dir)
 	if err != nil {
 		log.Panicf("unable to read rewards directory: %s", err)
@@ -719,13 +721,66 @@ func readRewards(alloc Allocation) []AddrBalanceTuple {
 		}
 
 		for k, v := range r.Rewards {
+			var addr iotago3.Ed25519Address
+			addrBytes, err := hex.DecodeString(k)
+			if err != nil {
+				log.Panicf("unable to decode hex encoded address '%s' in assembly reward file: %s", k, err)
+			}
+			copy(addr[:], addrBytes)
+
+			bech32AddrStr := addr.Bech32(iotago3.NetworkPrefix(cfg.ProtocolParameters.Bech32HRP))
 			totalRewards += v
-			accumulatedRewardsPerAddress[k] += v
+			accumulatedRewardsPerAddress[bech32AddrStr] += v
 		}
 	}
 	log.Printf("total rewards %d on %d addresses", totalRewards, len(accumulatedRewardsPerAddress))
 
-	iotaTokensToDistribute := mustParseUint64(alloc.Rewards.Tokens)
+	return totalRewards, accumulatedRewardsPerAddress
+}
+
+func readAssemblyDistributionFile(cfg *Config, alloc Allocation) (uint64, map[string]uint64) {
+	asmbDistroData, err := os.ReadFile(alloc.Distribution.File)
+	if err != nil {
+		log.Panicf("unable to read assembly distribution file: %s", err)
+	}
+
+	type tuple struct {
+		Base58Addr string `json:"address"`
+		Balance    uint64 `json:"balance"`
+	}
+
+	var tuples []tuple
+	if err := json.Unmarshal(asmbDistroData, &tuples); err != nil {
+		log.Panicf("unable to parse assembly distribution file: %s", err)
+	}
+
+	var totalRewards uint64
+	asmbTokensPerAddr := make(map[string]uint64)
+	for _, tuple := range tuples {
+		var addr iotago3.Ed25519Address
+
+		if _, excluded := alloc.Distribution.Exclude[tuple.Base58Addr]; excluded {
+			log.Printf("skipping assembly distribution address '%s' with %d balance", tuple.Base58Addr, tuple.Balance)
+			continue
+		}
+
+		assemblyAddressBytes, err := base58.Decode(tuple.Base58Addr)
+		if err != nil {
+			log.Panicf("unable to decode base58 assembly address '%s': %s", tuple.Base58Addr, err)
+		}
+		// is prefixed with zero byte to indicate address type in distribution file
+		copy(addr[:], assemblyAddressBytes[1:])
+
+		bech32AddrStr := addr.Bech32(iotago3.NetworkPrefix(cfg.ProtocolParameters.Bech32HRP))
+		totalRewards += tuple.Balance
+		asmbTokensPerAddr[bech32AddrStr] += tuple.Balance
+	}
+	log.Printf("total assembly tokens %d on %d addresses", totalRewards, len(asmbDistroData))
+
+	return totalRewards, asmbTokensPerAddr
+}
+
+func convertAssemblyToIOTA(iotaTokensToDistribute uint64, asmbTokensTotal uint64, asmbTokensPerAddr map[string]uint64) []AddrBalanceTuple {
 	remainder := iotaTokensToDistribute
 
 	type balancetuple struct {
@@ -736,16 +791,19 @@ func readRewards(alloc Allocation) []AddrBalanceTuple {
 	}
 
 	tuples := make([]balancetuple, 0)
-	for addr, assemblyRewards := range accumulatedRewardsPerAddress {
-		addr, err := parseAddress(addr)
+	for addr, assemblyTokens := range asmbTokensPerAddr {
+		addr, err := parseBech32Address(addr)
 		if err != nil {
-			log.Panicf("unable to parse reward address %s: %s", addr, err)
+			log.Panicf("unable to parse address %s: %s", addr, err)
 		}
 
-		iotaRewardsFloat64 := float64(iotaTokensToDistribute) * (float64(assemblyRewards) / float64(totalRewards))
+		iotaRewardsFloat64 := float64(iotaTokensToDistribute) * (float64(assemblyTokens) / float64(asmbTokensTotal))
 		iotaRewards := uint64(iotaRewardsFloat64)
 		remainder -= iotaRewards
-		tuples = append(tuples, balancetuple{addr, assemblyRewards, iotaRewards, iotaRewardsFloat64 - float64(iotaRewards)})
+		tuples = append(tuples, balancetuple{
+			addr, assemblyTokens,
+			iotaRewards, iotaRewardsFloat64 - float64(iotaRewards)},
+		)
 	}
 
 	log.Printf("iota remainder to distribute: %d", remainder)
@@ -769,7 +827,7 @@ func readRewards(alloc Allocation) []AddrBalanceTuple {
 	}
 
 	if iotaRewardsControl != iotaTokensToDistribute {
-		log.Panicf("total rewards distributed to addresses %d != %d", iotaRewardsControl, mustParseUint64(alloc.Rewards.Tokens))
+		log.Panicf("total rewards distributed to addresses %d != %d", iotaRewardsControl, iotaTokensToDistribute)
 	}
 
 	// make address tuples ordering deterministic

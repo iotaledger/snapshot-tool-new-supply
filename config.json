@@ -58,9 +58,21 @@
           "initialUnlock": 0.10,
           "vestingPeriodYears": 2
         },
-        "rewards": {
+        "distribution": {
+          "exclude": {
+            "111111111111111111111111111111111111111111111": 0,
+            "15DpUfbwyUp4niU5aHFLRMYpMk82H2nEnQaYDF3i4JqSE": 0,
+            "16JCcPVjZJBgsZVaXHhkeZYq2aTMSTp4ebsZ3r3cHHGjf": 0,
+            "1ADjVz6uzJVjcGmwDnBvqbtsvrLS6TBHX3W6eeXR3fpH3": 0,
+            "1FfnG7Yf4yUzrnLoNGaUnF6ZTR2br5C9CuEqQJFKgM96y": 0,
+            "1DStxnJAqErJM5Z9MTTvTXH4yDb2xu6r3QDJWdpWzcA52": 0,
+            "17NhqHggKcAtvfcAXudmrKYcXFuwpjK4n5c6JC6esxmR": 0,
+            "1H429rgKCzczRX69UtPzePUG29SuQgqGsv3b9J3bhPYrf": 0,
+            "1Hnz6sPSSPRagyBVJ4h98nJwSkVaZZWqsqGHe8983aVBj": 0,
+            "13jCg6KWQRJYRyCLJWvhRqE7ZBXu8n86gvWKidMcwc1fU": 0
+          },
           "tokens": "10000000000",
-          "dir": "./assembly_staking_rewards"
+          "file": "./assembly_distribution.json"
         }
       },
       {
