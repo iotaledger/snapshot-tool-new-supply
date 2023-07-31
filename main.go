@@ -267,12 +267,12 @@ func main() {
 
 	treasuryTokens := mustParseUint64(cfg.TreasuryTokens)
 
-	if _, err := os.Stat(cfg.ChrysalisSnapshotFile); err != nil || os.IsNotExist(err) {
+	if _, err := os.Stat(cfg.Snapshot.ChrysalisSnapshotFile); err != nil || os.IsNotExist(err) {
 		log.Panicf("chrysalis snapshot file missing: %s", err)
 	}
 
-	if _, err := os.Stat(cfg.OutputSnapshotFile); err == nil || !os.IsNotExist(err) {
-		log.Panicf("output snapshot file '%s' already exists", cfg.OutputSnapshotFile)
+	if _, err := os.Stat(cfg.Snapshot.OutputSnapshotFile); err == nil || !os.IsNotExist(err) {
+		log.Panicf("output snapshot file '%s' already exists", cfg.Snapshot.OutputSnapshotFile)
 	}
 
 	println("loading protocol parameters ...")
@@ -306,7 +306,7 @@ func main() {
 		log.Panicf("unable to serialize chrysalis snapshot stats: %s", err)
 	}
 
-	log.Printf("read in chrysalis snapshot %s:", cfg.ChrysalisSnapshotFile)
+	log.Printf("read in chrysalis snapshot %s:", cfg.Snapshot.ChrysalisSnapshotFile)
 	log.Printf(string(beautifiedChrysalisStats))
 
 	log.Println("converting to stardust ledger outputs:")
@@ -328,7 +328,7 @@ func main() {
 		log.Printf("generated %d outputs from CSV import file", len(csvImportOutputs))
 	}
 
-	if cfg.SkipSnapshotGeneration {
+	if cfg.Snapshot.SkipSnapshotGeneration {
 		log.Println("finished")
 		return
 	}
@@ -432,7 +432,7 @@ func main() {
 	}
 
 	// build temp file path
-	outputFilePathTmp := cfg.OutputSnapshotFile + "_tmp"
+	outputFilePathTmp := cfg.Snapshot.OutputSnapshotFile + "_tmp"
 
 	// we don't need to check the error, maybe the file doesn't exist
 	_ = os.Remove(outputFilePathTmp)
@@ -465,7 +465,7 @@ func main() {
 	}
 
 	// rename tmp file to final file name
-	if err := os.Rename(outputFilePathTmp, cfg.OutputSnapshotFile); err != nil {
+	if err := os.Rename(outputFilePathTmp, cfg.Snapshot.OutputSnapshotFile); err != nil {
 		log.Panicf("unable to rename temp snapshot file: %s", err)
 	}
 
@@ -474,7 +474,7 @@ func main() {
 	if err != nil {
 		log.Panicf("unable to hash function: %s", err)
 	}
-	snapshotFile, err := os.Open(cfg.OutputSnapshotFile)
+	snapshotFile, err := os.Open(cfg.Snapshot.OutputSnapshotFile)
 	if err != nil {
 		log.Panicf("unable to read snapshot file for hash computation: %s", err)
 	}
@@ -844,7 +844,7 @@ func newOutputIDFromMarker(supplyIncreaseMarker []byte, outputIndex *uint32) iot
 }
 
 func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
-	chrysalisSnapshotFile, err := os.Open(cfg.ChrysalisSnapshotFile)
+	chrysalisSnapshotFile, err := os.Open(cfg.Snapshot.ChrysalisSnapshotFile)
 	if err != nil {
 		log.Panicf("unable to open chrysalis snapshot file: %s", err)
 	}

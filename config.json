@@ -52,6 +52,18 @@
         }
       },
       {
+        "name": "assembly_if_members",
+        "unlocks": {
+          "frequency": "weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 2
+        },
+        "rewards": {
+          "tokens": "10000000000",
+          "dir": "./assembly_staking_rewards"
+        }
+      },
+      {
         "name": "assembly_investors",
         "unlocks": {
           "frequency": "weekly",
