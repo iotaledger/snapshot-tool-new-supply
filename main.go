@@ -349,7 +349,7 @@ func main() {
 			copy(msID[:], milestoneIDBytes)
 			return msID
 		}(),
-		LedgerMilestoneIndex: iotago3.MilestoneIndex(chrysalisSnapshot.Header.LedgerMilestoneIndex),
+		LedgerMilestoneIndex: iotago3.MilestoneIndex(cfg.Snapshot.LedgerMilestoneIndex),
 		TreasuryOutput: &utxo.TreasuryOutput{
 			MilestoneID: chrysalisSnapshot.Header.TreasuryOutput.MilestoneID,
 			Amount:      treasuryTokens,
