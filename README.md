@@ -12,8 +12,9 @@ This tool generates the global snapshot for "The Merge" on the IOTA mainnet by d
    results added in the corresponding folder, where the rewards are distributed pro rata of the defined allocated IOTA
    tokens for the stakers. Same applies to IF member rewards.
 3. Writes out the outputs into a Stardust snapshot while retaining the same output IDs for the outputs stemming from the
-   Chrysalis snapshot and using a special marker output ID which is the blake2b-256 hash of the in the config defined
-   input text (default "themerge", resulting in `0xb191c4bc825ac6983789e50545d5ef07a1d293a98ad974fc9498cb1807f08346`)
+   Chrysalis snapshot and using a special marker which is the blake2b-256 hash (only using 30 bytes of it)
+   of the in the config defined input text (default "themerge", resulting
+   in `0xb191c4bc825ac6983789e50545d5ef07a1d293a98ad974fc9498cb1807f0`) to mark the 30 first bytes of the output ID and
    with the last 4 bytes being the index of the output in little endian (note that this
    means that the "output index" of these outputs can exceed the 128 index limit).
 4. Exports all generated outputs as CSV files in the configured folders (if enabled in the config).

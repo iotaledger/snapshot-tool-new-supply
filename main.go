@@ -502,7 +502,7 @@ func generateCSVOutputs(cfg *Config) ([]iotago3.OutputID, []iotago3.Output) {
 
 	var currentOutputIndex uint32
 	outputMarker := blake2b.Sum256([]byte(cfg.CSV.Import.OutputMarker))
-	log.Printf("using marker '%s' to mark CSV import outputs", iotago3.EncodeHex(outputMarker[:]))
+	log.Printf("using marker '%s' to mark CSV import outputs", iotago3.EncodeHex(outputMarker[:len(outputMarker)-2]))
 
 	rows, err := csv.NewReader(csvImportFile).ReadAll()
 	if err != nil {
@@ -560,7 +560,7 @@ func generateNewSupplyOutputs(cfg *Config) ([]iotago3.OutputID, []iotago3.Output
 
 	var currentOutputIndex uint32
 	outputMarker := blake2b.Sum256([]byte(cfg.Vesting.OutputMarker))
-	log.Printf("using marker '%s' to mark supply increase outputs", iotago3.EncodeHex(outputMarker[:]))
+	log.Printf("using marker '%s' to mark supply increase outputs", iotago3.EncodeHex(outputMarker[:len(outputMarker)-2]))
 
 	for _, alloc := range cfg.Vesting.Allocations {
 		if alloc.Rewards != nil {
