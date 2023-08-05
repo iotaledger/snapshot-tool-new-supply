@@ -334,7 +334,7 @@ func main() {
 	fullHeader := &snapshot.FullSnapshotHeader{
 		Version:                  snapshot.SupportedFormatVersion,
 		Type:                     snapshot.Full,
-		GenesisMilestoneIndex:    0,
+		GenesisMilestoneIndex:    iotago3.MilestoneIndex(cfg.Snapshot.GenesisMilestoneIndex),
 		TargetMilestoneIndex:     iotago3.MilestoneIndex(cfg.Snapshot.TargetMilestoneIndex),
 		TargetMilestoneTimestamp: uint32(cfg.Snapshot.TargetMilestoneTimestamp),
 		TargetMilestoneID: func() iotago3.MilestoneID {
