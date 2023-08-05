@@ -180,6 +180,8 @@ type ChrysalisSnapshot struct {
 	TreasuryOutput *chrysalisutxo.TreasuryOutput
 	// Stats of the snapshot
 	Stats ChrysalisSnapshotStats
+	// Solid Entry Point
+	SolidEntryPointMessageID hornet.MessageID
 }
 
 // StardustOutputs converts the Chrysalis outputs into their Stardust representation.
@@ -365,15 +367,18 @@ func main() {
 	}
 
 	// solid entry points
-	// add "EmptyBlockID" as sole entry point
-	nullHashAdded := false
-	solidEntryPointProducerFunc := func() (iotago3.BlockID, error) {
-		if nullHashAdded {
-			return iotago3.EmptyBlockID(), snapshot.ErrNoMoreSEPToProduce
-		}
-		nullHashAdded = true
+	// add "solidEntryPointBlockID" as sole entry point
+	var solidEntryPointBlockID iotago3.BlockID
+	copy(solidEntryPointBlockID[:], chrysalisSnapshot.SolidEntryPointMessageID)
 
-		return iotago3.EmptyBlockID(), nil
+	entryPointAdded := false
+	solidEntryPointProducerFunc := func() (iotago3.BlockID, error) {
+		if entryPointAdded {
+			return solidEntryPointBlockID, snapshot.ErrNoMoreSEPToProduce
+		}
+		entryPointAdded = true
+
+		return solidEntryPointBlockID, nil
 	}
 
 	// unspent transaction outputs
@@ -917,6 +922,10 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 		},
 		// SEPs
 		func(id hornet.MessageID) error {
+			if chrysalisSnapshot.SolidEntryPointMessageID != nil {
+				log.Panic("snapshot contains more than one SEP")
+			}
+			chrysalisSnapshot.SolidEntryPointMessageID = id
 			return nil
 		},
 		// ledger
