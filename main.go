@@ -20,13 +20,10 @@ import (
 
 	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/iotaledger/hive.go/serializer/v2"
-	"github.com/iotaledger/hornet/pkg/model/hornet"
 	iotago2 "github.com/iotaledger/iota.go/v2"
 	iotago3 "github.com/iotaledger/iota.go/v3"
 
-	chrysalisutxo "github.com/iotaledger/hornet/pkg/model/utxo"
-	chrysalissnapshot "github.com/iotaledger/hornet/pkg/snapshot"
-
+	"github.com/iotaledger/the-mergerator/pkg/hornet/chrysalis"
 	"github.com/iotaledger/the-mergerator/pkg/hornet/stardust"
 	"github.com/iotaledger/the-mergerator/pkg/hornet/stardust/tpkg"
 )
@@ -156,7 +153,7 @@ func NewChrysalisSnapshot() *ChrysalisSnapshot {
 	}
 }
 
-type ChrysalisOutputs []*chrysalissnapshot.Output
+type ChrysalisOutputs []*chrysalis.Output
 
 func (outputs ChrysalisOutputs) ConvertToStardust() ([]iotago3.OutputID, []iotago3.Output) {
 	var stardustOutputs []iotago3.Output
@@ -171,7 +168,7 @@ func (outputs ChrysalisOutputs) ConvertToStardust() ([]iotago3.OutputID, []iotag
 // ChrysalisSnapshot represents a Chrysalis snapshot.
 type ChrysalisSnapshot struct {
 	// Header of the snapshot
-	Header *chrysalissnapshot.ReadFileHeader
+	Header *chrysalis.ReadFileHeader
 	// All ledger outputs which are not dust allowance, dust or treasury outputs
 	Outputs ChrysalisOutputs
 	// All dust allowance dust outputs mapped by their address
@@ -179,11 +176,11 @@ type ChrysalisSnapshot struct {
 	// All dust outputs mapped by their address
 	DustOutputs map[string]ChrysalisOutputs
 	// Treasury output
-	TreasuryOutput *chrysalisutxo.TreasuryOutput
+	TreasuryOutput *chrysalis.TreasuryOutput
 	// Metadata of the snapshot
 	Metadata ChrysalisSnapshotMetadata
 	// Solid Entry Point
-	SolidEntryPointMessageID hornet.MessageID
+	SolidEntryPointMessageID chrysalis.MessageID
 }
 
 // StardustOutputs converts the Chrysalis outputs into their Stardust representation.
@@ -218,7 +215,7 @@ func (s *ChrysalisSnapshot) StardustOutputs() ([]iotago3.OutputID, []iotago3.Out
 		// add dust outputs to "first" dust allowance output
 		if has {
 			// makes the target dust allowance output deterministic
-			sort.Sort(chrysalissnapshot.LexicalOrderedOutputs(tuple.dustAllowanceOutputs))
+			sort.Sort(chrysalis.LexicalOrderedOutputs(tuple.dustAllowanceOutputs))
 
 			// turn on the vacuum
 			var dustVacuumed uint64
@@ -237,7 +234,7 @@ func (s *ChrysalisSnapshot) StardustOutputs() ([]iotago3.OutputID, []iotago3.Out
 	return stardustOutputIDs, stardustOutputs
 }
 
-func convertChrysalisToStardust(output *chrysalissnapshot.Output) iotago3.Output {
+func convertChrysalisToStardust(output *chrysalis.Output) iotago3.Output {
 	addr := iotago3.Ed25519Address{}
 	copy(addr[:], output.Address.(*iotago2.Ed25519Address)[:])
 	addrUnlock := &iotago3.AddressUnlockCondition{Address: &addr}
@@ -979,14 +976,14 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 
 	chrysalisSnapshot := NewChrysalisSnapshot()
 
-	if err := chrysalissnapshot.StreamSnapshotDataFrom(chrysalisSnapshotFile,
+	if err := chrysalis.StreamSnapshotDataFrom(chrysalisSnapshotFile,
 		// header
-		func(header *chrysalissnapshot.ReadFileHeader) error {
+		func(header *chrysalis.ReadFileHeader) error {
 			chrysalisSnapshot.Header = header
 			return nil
 		},
 		// SEPs
-		func(id hornet.MessageID) error {
+		func(id chrysalis.MessageID) error {
 			if chrysalisSnapshot.SolidEntryPointMessageID != nil {
 				log.Panic("snapshot contains more than one SEP")
 			}
@@ -994,7 +991,7 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 			return nil
 		},
 		// ledger
-		func(output *chrysalissnapshot.Output) error {
+		func(output *chrysalis.Output) error {
 			key := output.Address.(*iotago2.Ed25519Address).String()
 			chrysalisSnapshot.Metadata.TotalOutputsCount++
 
@@ -1026,14 +1023,14 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 			return nil
 		},
 		// treasury
-		func(output *chrysalisutxo.TreasuryOutput) error {
+		func(output *chrysalis.TreasuryOutput) error {
 			chrysalisSnapshot.Metadata.TotalOutputsCount++
 			chrysalisSnapshot.TreasuryOutput = output
 			chrysalisSnapshot.Metadata.Treasury = output.Amount
 			return nil
 		},
 		// milestone diffs
-		func(milestoneDiff *chrysalissnapshot.MilestoneDiff) error {
+		func(milestoneDiff *chrysalis.MilestoneDiff) error {
 			return nil
 		},
 	); err != nil {
@@ -1045,6 +1042,6 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 	return chrysalisSnapshot
 }
 
-func isDustOutput(output *chrysalissnapshot.Output) bool {
+func isDustOutput(output *chrysalis.Output) bool {
 	return output.Amount < 1000000
 }
