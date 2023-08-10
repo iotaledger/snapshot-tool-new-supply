@@ -21,19 +21,14 @@ import (
 	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hornet/pkg/model/hornet"
-	"github.com/iotaledger/hornet/v2/pkg/tpkg"
 	iotago2 "github.com/iotaledger/iota.go/v2"
+	iotago3 "github.com/iotaledger/iota.go/v3"
 
 	chrysalisutxo "github.com/iotaledger/hornet/pkg/model/utxo"
 	chrysalissnapshot "github.com/iotaledger/hornet/pkg/snapshot"
 
-	// don't move this import, it fixes the issue of the multiple hornet versions
-	// declaring the same command line flags and thus crashing the program up on startup
-	_ "github.com/iotaledger/the-mergerator/pkg"
-
-	"github.com/iotaledger/hornet/v2/pkg/model/utxo"
-	"github.com/iotaledger/hornet/v2/pkg/snapshot"
-	iotago3 "github.com/iotaledger/iota.go/v3"
+	"github.com/iotaledger/the-mergerator/pkg/hornet/stardust"
+	"github.com/iotaledger/the-mergerator/pkg/hornet/stardust/tpkg"
 )
 
 type Config struct {
@@ -351,9 +346,9 @@ func main() {
 
 	// create snapshot file
 	var targetIndex iotago3.MilestoneIndex
-	fullHeader := &snapshot.FullSnapshotHeader{
-		Version:                  snapshot.SupportedFormatVersion,
-		Type:                     snapshot.Full,
+	fullHeader := &stardust.FullSnapshotHeader{
+		Version:                  stardust.SupportedFormatVersion,
+		Type:                     stardust.Full,
 		GenesisMilestoneIndex:    iotago3.MilestoneIndex(cfg.Snapshot.GenesisMilestoneIndex),
 		TargetMilestoneIndex:     iotago3.MilestoneIndex(cfg.Snapshot.TargetMilestoneIndex),
 		TargetMilestoneTimestamp: uint32(cfg.Snapshot.TargetMilestoneTimestamp),
@@ -370,7 +365,7 @@ func main() {
 			return msID
 		}(),
 		LedgerMilestoneIndex: iotago3.MilestoneIndex(cfg.Snapshot.LedgerMilestoneIndex),
-		TreasuryOutput: &utxo.TreasuryOutput{
+		TreasuryOutput: &stardust.TreasuryOutput{
 			MilestoneID: chrysalisSnapshot.Header.TreasuryOutput.MilestoneID,
 			Amount:      treasuryTokens,
 		},
@@ -392,7 +387,7 @@ func main() {
 	entryPointAdded := false
 	solidEntryPointProducerFunc := func() (iotago3.BlockID, error) {
 		if entryPointAdded {
-			return solidEntryPointBlockID, snapshot.ErrNoMoreSEPToProduce
+			return solidEntryPointBlockID, stardust.ErrNoMoreSEPToProduce
 		}
 		entryPointAdded = true
 
@@ -402,10 +397,10 @@ func main() {
 	// unspent transaction outputs
 	var chrysalisLedgerIndex, supplyIncreaseOutputsIndex, csvImportOutputsIndex int
 	var nonTreasuryOutputsSupplyTotal uint64
-	outputProducerFunc := func() (*utxo.Output, error) {
+	outputProducerFunc := func() (*stardust.Output, error) {
 
 		if chrysalisLedgerIndex < len(stardustOutputs) {
-			output := utxo.CreateOutput(
+			output := stardust.CreateOutput(
 				stardustOutputIDs[chrysalisLedgerIndex],
 				iotago3.EmptyBlockID(),
 				0,
@@ -417,7 +412,7 @@ func main() {
 		}
 
 		if supplyIncreaseOutputsIndex < len(supplyIncreaseOutputs) {
-			output := utxo.CreateOutput(
+			output := stardust.CreateOutput(
 				supplyIncreaseOutputIDs[supplyIncreaseOutputsIndex],
 				iotago3.EmptyBlockID(),
 				0,
@@ -429,7 +424,7 @@ func main() {
 		}
 
 		if len(csvImportOutputIDs) > 0 && csvImportOutputsIndex < len(csvImportOutputs) {
-			output := utxo.CreateOutput(
+			output := stardust.CreateOutput(
 				csvImportOutputIDs[csvImportOutputsIndex],
 				iotago3.EmptyBlockID(),
 				0,
@@ -445,7 +440,7 @@ func main() {
 	}
 
 	// milestone diffs
-	milestoneDiffProducerFunc := func() (*snapshot.MilestoneDiff, error) {
+	milestoneDiffProducerFunc := func() (*stardust.MilestoneDiff, error) {
 		// no milestone diffs needed
 		return nil, nil
 	}
@@ -461,8 +456,8 @@ func main() {
 		log.Panicf("unable to create snapshot file: %s", err)
 	}
 
-	log.Println("writing snapshot...")
-	if _, err := snapshot.StreamFullSnapshotDataTo(
+	log.Println("writing merge snapshot...")
+	if err := stardust.StreamFullSnapshotDataTo(
 		fileHandle,
 		fullHeader,
 		outputProducerFunc,
