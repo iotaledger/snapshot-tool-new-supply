@@ -1,10 +1,28 @@
-package main
+package mergerator
 
 import (
+	"fmt"
+	"os"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/ioutils"
 	iotago3 "github.com/iotaledger/iota.go/v3"
+	"github.com/iotaledger/the-mergerator/pkg/hornet/stardust/tpkg"
 )
+
+// sample output for storage deposit calculation
+var refTimelockedBasicOutput = &iotago3.BasicOutput{
+	Conditions: iotago3.UnlockConditions{
+		&iotago3.AddressUnlockCondition{Address: tpkg.RandAddress(iotago3.AddressEd25519)},
+		&iotago3.TimelockUnlockCondition{UnixTime: 1337},
+	},
+}
+
+var refNonTimelockedbasicOutput = &iotago3.BasicOutput{
+	Conditions: iotago3.UnlockConditions{
+		&iotago3.AddressUnlockCondition{Address: tpkg.RandAddress(iotago3.AddressEd25519)},
+	},
+}
 
 type Config struct {
 	ProtocolParameters struct {
@@ -76,4 +94,43 @@ type AddrBalanceTuple struct {
 	Name    string `json:"name"`
 	Address string `json:"address"`
 	Tokens  string `json:"tokens"`
+}
+
+func LoadConfigFile(filePath string) (*Config, error) {
+	cfg := &Config{}
+	if err := ioutils.ReadJSONFromFile(filePath, cfg); err != nil {
+		return nil, fmt.Errorf("unable to read config file: %w", err)
+	}
+
+	if _, err := os.Stat(cfg.Snapshot.ChrysalisSnapshotFile); err != nil || os.IsNotExist(err) {
+		return nil, fmt.Errorf("chrysalis snapshot file missing: %w", err)
+	}
+
+	if _, err := os.Stat(cfg.Snapshot.OutputSnapshotFile); err == nil || !os.IsNotExist(err) {
+		return nil, fmt.Errorf("output snapshot file '%s' already exists", cfg.Snapshot.OutputSnapshotFile)
+	}
+
+	println("loading protocol parameters ...")
+
+	protoParams := iotago3.ProtocolParameters{
+		Version:       cfg.ProtocolParameters.Version,
+		NetworkName:   cfg.ProtocolParameters.NetworkName,
+		Bech32HRP:     iotago3.NetworkPrefix(cfg.ProtocolParameters.Bech32HRP),
+		MinPoWScore:   cfg.ProtocolParameters.MinPoWScore,
+		BelowMaxDepth: cfg.ProtocolParameters.BelowMaxDepth,
+		RentStructure: iotago3.RentStructure{
+			VByteCost:    cfg.ProtocolParameters.RentStructure.VByteCost,
+			VBFactorData: iotago3.VByteCostFactor(cfg.ProtocolParameters.RentStructure.VBFactorData),
+			VBFactorKey:  iotago3.VByteCostFactor(cfg.ProtocolParameters.RentStructure.VBFactorKey),
+		},
+		TokenSupply: mustParseUint64(cfg.ProtocolParameters.TokenSupply),
+	}
+
+	cfg.ParsedProtocolParameters = &protoParams
+
+	r := cfg.ParsedProtocolParameters.RentStructure
+	cfg.MinCostPerTimelockedBasicOutput = uint64(r.VByteCost) * uint64((refTimelockedBasicOutput).VBytes(&r, nil))
+	cfg.MinCostPerNonTimelockedBasicOutput = uint64(r.VByteCost) * uint64((refNonTimelockedbasicOutput).VBytes(&r, nil))
+
+	return cfg, nil
 }
