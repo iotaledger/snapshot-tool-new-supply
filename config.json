@@ -1,7 +1,7 @@
 {
   "protocolParameters": {
-    "version": 1,
-    "networkName": "stardust-mainnet",
+    "version": 2,
+    "networkName": "stardust-mainnet-pre1",
     "bech32Hrp": "iota",
     "minPowScore": 1500,
     "belowMaxDepth": 15,
@@ -10,19 +10,19 @@
       "vBFactorData": 1,
       "vBFactorKey": 10
     },
-    "tokenSupply": "4292657708000000"
+    "tokenSupply": "2539517412586458"
   },
-  "validateSupply": false,
+  "validateSupply": true,
   "treasuryTokens": "100000",
   "snapshot": {
-    "skipSnapshotGeneration": true,
-    "chrysalisSnapshotFile": "chrysalis_snapshot_file.bin",
+    "skipSnapshotGeneration": false,
+    "chrysalisSnapshotFile": "7143515_full.bin",
     "outputSnapshotFile": "the_merge_snapshot.bin",
-    "genesisMilestoneIndex": 0,
-    "targetMilestoneIndex": 0,
-    "targetMilestoneTimestamp": 0,
-    "targetMilestoneID": "",
-    "ledgerMilestoneIndex": 0
+    "genesisMilestoneIndex": 7143515,
+    "ledgerMilestoneIndex": 7143515,
+    "targetMilestoneId": "0xb85efb96f7de93cde48af7aa89e589ce332a1c621c79eeca5b93e780a458d92d",
+    "targetMilestoneIndex": 7143515,
+    "targetMilestoneTimestamp": 1691134625
   },
   "csv": {
     "export": {
