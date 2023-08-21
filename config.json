@@ -42,7 +42,7 @@
       {
         "name": "assembly_stakers",
         "unlocks": {
-          "frequency": "weekly",
+          "frequency": "bi-weekly",
           "initialUnlock": 0.10,
           "vestingPeriodYears": 2
         },
@@ -54,7 +54,7 @@
       {
         "name": "assembly_if_members",
         "unlocks": {
-          "frequency": "weekly",
+          "frequency": "bi-weekly",
           "initialUnlock": 0.10,
           "vestingPeriodYears": 2
         },
@@ -78,7 +78,7 @@
       {
         "name": "assembly_investors",
         "unlocks": {
-          "frequency": "weekly",
+          "frequency": "bi-weekly",
           "initialUnlock": 0.10,
           "vestingPeriodYears": 2
         },
@@ -103,7 +103,7 @@
       {
         "name": "funding_investors",
         "unlocks": {
-          "frequency": "weekly",
+          "frequency": "bi-weekly",
           "initialUnlock": 0.10,
           "vestingPeriodYears": 2
         },
@@ -128,7 +128,7 @@
       {
         "name": "ecosystem_fund",
         "unlocks": {
-          "frequency": "weekly",
+          "frequency": "bi-weekly",
           "initialUnlock": 0.10,
           "vestingPeriodYears": 4
         },
@@ -143,7 +143,7 @@
       {
         "name": "iota_foundation",
         "unlocks": {
-          "frequency": "weekly",
+          "frequency": "bi-weekly",
           "initialUnlock": 0.10,
           "vestingPeriodYears": 4
         },
