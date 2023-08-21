@@ -868,6 +868,11 @@ func generateVestingOutputs(
 	initialUnlock += (vestedTokens - initialUnlock) % uint64(len(investorTimelocks))
 	fundsPerUnlock := (vestedTokens - initialUnlock) / uint64(len(investorTimelocks))
 
+	// if fundsPerUnlock is 0, then we only have the initialUnlock
+	if fundsPerUnlock == 0 {
+		investorTimelocks = make([]*iotago3.TimelockUnlockCondition, 0)
+	}
+
 	// initial unlock output
 	outputIDs := []iotago3.OutputID{newOutputIDFromMarker(supplyIncreaseMarker, outputIndex)}
 	outputs := []iotago3.Output{
