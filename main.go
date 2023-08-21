@@ -109,9 +109,10 @@ type AddrBalanceTuple struct {
 }
 
 var (
-	dayDuration     = time.Duration(86400000000000)
-	weeklyDuration  = dayDuration * 7
-	monthlyDuration = dayDuration * 30
+	dayDuration      = time.Duration(86400000000000)
+	weeklyDuration   = dayDuration * 7
+	biWeeklyDuration = weeklyDuration * 2
+	monthlyDuration  = dayDuration * 30
 )
 
 func vestingIntervalFromStr(str string) time.Duration {
@@ -120,6 +121,8 @@ func vestingIntervalFromStr(str string) time.Duration {
 		return dayDuration
 	case "weekly":
 		return weeklyDuration
+	case "bi-weekly":
+		return biWeeklyDuration
 	case "monthly":
 		return monthlyDuration
 	default:
