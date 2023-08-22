@@ -945,16 +945,18 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 			case output.OutputType == iotago2.OutputSigLockedDustAllowanceOutput:
 				dustAllowanceOutputsSlice, has := chrysalisSnapshot.DustAllowanceOutputs[key]
 				if !has {
-					dustAllowanceOutputsSlice = append(dustAllowanceOutputsSlice, output)
+					dustAllowanceOutputsSlice = make(ChrysalisOutputs, 0)
 				}
+				dustAllowanceOutputsSlice = append(dustAllowanceOutputsSlice, output)
 				chrysalisSnapshot.DustAllowanceOutputs[key] = dustAllowanceOutputsSlice
 				chrysalisSnapshot.Stats.DustAllowanceOutputsCount++
 
 			case isDustOutput(output):
 				dustOutputsSlice, has := chrysalisSnapshot.DustOutputs[key]
 				if !has {
-					dustOutputsSlice = append(dustOutputsSlice, output)
+					dustOutputsSlice = make(ChrysalisOutputs, 0)
 				}
+				dustOutputsSlice = append(dustOutputsSlice, output)
 				chrysalisSnapshot.DustOutputs[key] = dustOutputsSlice
 				chrysalisSnapshot.Stats.DustOutputsCount++
 				chrysalisSnapshot.Stats.TotalDustBalance += output.Amount
