@@ -864,9 +864,21 @@ func generateVestingOutputs(
 	cfg *Config, target iotago3.Address, alloc Allocation,
 	vestedTokens uint64, supplyIncreaseMarker []byte, outputIndex *uint32,
 ) ([]iotago3.OutputID, []iotago3.Output, []*iotago3.TimelockUnlockCondition) {
-	investorTimelocks := vestingTimelocks(alloc, cfg.Vesting.StartingDate)
+
+	// no vesting due to 100% initial unlock
+	if alloc.Unlocks.InitialUnlock == 1 {
+		outputIDs := []iotago3.OutputID{newOutputIDFromMarker(supplyIncreaseMarker, outputIndex)}
+		outputs := []iotago3.Output{
+			&iotago3.BasicOutput{
+				Amount:     vestedTokens,
+				Conditions: iotago3.UnlockConditions{&iotago3.AddressUnlockCondition{Address: target}},
+			},
+		}
+		return outputIDs, outputs, make([]*iotago3.TimelockUnlockCondition, 0)
+	}
 
 	var controlSum uint64
+	investorTimelocks := vestingTimelocks(alloc, cfg.Vesting.StartingDate)
 	initialUnlock := uint64(float64(vestedTokens) * alloc.Unlocks.InitialUnlock)
 	initialUnlock += (vestedTokens - initialUnlock) % uint64(len(investorTimelocks))
 	fundsPerUnlock := (vestedTokens - initialUnlock) / uint64(len(investorTimelocks))

@@ -40,6 +40,19 @@
     "outputMarker": "themerge",
     "allocations": [
       {
+        "name": "treasury_dao",
+        "unlocks": {
+          "initialUnlock": 1
+        },
+        "addresses": [
+          {
+            "name": "Treasury DAO",
+            "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
+            "tokens": "214632885"
+          }
+        ]
+      },
+      {
         "name": "assembly_stakers",
         "unlocks": {
           "frequency": "bi-weekly",
@@ -134,7 +147,7 @@
         },
         "addresses": [
           {
-            "name": "Eclipse Equity Partners",
+            "name": "Ecosystem Fund",
             "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
             "tokens": "1352187178"
           }
@@ -149,7 +162,7 @@
         },
         "addresses": [
           {
-            "name": "Eclipse Equity Partners",
+            "name": "IOTA Foundation",
             "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
             "tokens": "214632885"
           }
