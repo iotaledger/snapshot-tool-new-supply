@@ -26,7 +26,7 @@
   },
   "csv": {
     "export": {
-      "active": false,
+      "active": true,
       "dir": "./exports"
     },
     "import": {
@@ -60,7 +60,7 @@
           "vestingPeriodYears": 2
         },
         "rewards": {
-          "tokens": "10000000000",
+          "tokens": "162139267000000",
           "dir": "./assembly_staking_rewards"
         }
       },
