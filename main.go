@@ -74,7 +74,7 @@ type Config struct {
 		} `json:"import"`
 	} `json:"csv"`
 	Vesting struct {
-		StartingDate time.Time    `json:"startingDate"`
+		StartingDate time.Time    `json:"startDate"`
 		OutputMarker string       `json:"outputMarker"`
 		Allocations  []Allocation `json:"allocations"`
 	}
@@ -102,6 +102,7 @@ type Allocation struct {
 	Addresses []AddrBalanceTuple
 }
 
+// AddrBalanceTuple represents an allocation to an address.
 type AddrBalanceTuple struct {
 	Name    string `json:"name"`
 	Address string `json:"address"`
@@ -115,6 +116,7 @@ var (
 	monthlyDuration  = dayDuration * 30
 )
 
+// parses a frequency duration string to a time.Duration
 func vestingIntervalFromStr(str string) time.Duration {
 	switch str {
 	case "daily":
@@ -130,11 +132,12 @@ func vestingIntervalFromStr(str string) time.Duration {
 	}
 }
 
-// generates the times at which funds for the given investor become unlocked.
+// generates timelock unlock conditions given the Allocation's frequency and vesting period.
 func vestingTimelocks(alloc Allocation, startDate time.Time) []*iotago3.TimelockUnlockCondition {
 	unlocks := make([]*iotago3.TimelockUnlockCondition, 0)
-	end := startDate.AddDate(alloc.Unlocks.VestingPeriodYears, 0, 0)
-	for date := startDate; date.Before(end); date = date.Add(vestingIntervalFromStr(alloc.Unlocks.Frequency)) {
+	end := startDate.UTC().AddDate(alloc.Unlocks.VestingPeriodYears, 0, 0)
+	interval := vestingIntervalFromStr(alloc.Unlocks.Frequency)
+	for date := startDate.UTC().Add(interval); date.Before(end); date = date.Add(interval) {
 		unlocks = append(unlocks, &iotago3.TimelockUnlockCondition{UnixTime: uint32(date.Unix())})
 	}
 	return unlocks
@@ -170,6 +173,7 @@ func (outputs ChrysalisOutputs) ConvertToStardust() ([]iotago3.OutputID, []iotag
 	return outputIDs, stardustOutputs
 }
 
+// ChrysalisSnapshot represents a Chrysalis snapshot.
 type ChrysalisSnapshot struct {
 	// Header of the snapshot
 	Header *chrysalissnapshot.ReadFileHeader
@@ -181,8 +185,8 @@ type ChrysalisSnapshot struct {
 	DustOutputs map[string]ChrysalisOutputs
 	// Treasury output
 	TreasuryOutput *chrysalisutxo.TreasuryOutput
-	// Stats of the snapshot
-	Stats ChrysalisSnapshotStats
+	// Metadata of the snapshot
+	Metadata ChrysalisSnapshotMetadata
 	// Solid Entry Point
 	SolidEntryPointMessageID hornet.MessageID
 }
@@ -245,14 +249,22 @@ func convertChrysalisToStardust(output *chrysalissnapshot.Output) iotago3.Output
 	return &iotago3.BasicOutput{Amount: output.Amount, Conditions: iotago3.UnlockConditions{addrUnlock}}
 }
 
-type ChrysalisSnapshotStats struct {
-	TotalBalance              uint64 `json:"totalBalance"`
-	TotalBalanceSumOutputs    uint64 `json:"totalBalanceSumOutputs"`
-	TotalOutputsCount         uint64 `json:"totalOutputsCount"`
+// ChrysalisSnapshotMetadata represents the metadata around a Chrysalis based snapshot.
+type ChrysalisSnapshotMetadata struct {
+	// The total balance of all outputs + treasury occurred within the snapshot.
+	TotalBalance uint64 `json:"totalBalance"`
+	// The total balance of all outputs within the snapshot.
+	TotalBalanceSumOutputs uint64 `json:"totalBalanceSumOutputs"`
+	// The total amount of outputs within the snapshot.
+	TotalOutputsCount uint64 `json:"totalOutputsCount"`
+	// The total amount of dust allowance outputs within the snapshot.
 	DustAllowanceOutputsCount uint64 `json:"dustAllowanceOutputsCount"`
-	DustOutputsCount          uint64 `json:"dustOutputsCount"`
-	TotalDustBalance          uint64 `json:"totalDustBalance"`
-	TreasuryFunds             uint64 `json:"treasuryFunds"`
+	// The total amount of dust outputs within the snapshot.
+	DustOutputsCount uint64 `json:"dustOutputsCount"`
+	// The total amount of dust balance within the snapshot.
+	TotalDustBalance uint64 `json:"totalDustBalance"`
+	// The balance of tokens within the treasury.
+	Treasury uint64 `json:"treasury"`
 }
 
 func main() {
@@ -269,7 +281,7 @@ func main() {
 	treasuryTokens := mustParseUint64(cfg.TreasuryTokens)
 
 	if _, err := os.Stat(cfg.Snapshot.ChrysalisSnapshotFile); err != nil || os.IsNotExist(err) {
-		log.Panicf("chrysalis snapshot file missing: %s", err)
+		log.Panicf("Chrysalis snapshot file missing: %s", err)
 	}
 
 	if _, err := os.Stat(cfg.Snapshot.OutputSnapshotFile); err == nil || !os.IsNotExist(err) {
@@ -278,6 +290,7 @@ func main() {
 
 	println("loading protocol parameters ...")
 
+	// parse protocol parameters from config into struct
 	protoParams := iotago3.ProtocolParameters{
 		Version:       cfg.ProtocolParameters.Version,
 		NetworkName:   cfg.ProtocolParameters.NetworkName,
@@ -297,40 +310,42 @@ func main() {
 	}
 	cfg.ParsedProtocolParameters = &protoParams
 
+	// compute storage deposit for minimal basic outputs (+timelocked)
 	r := cfg.ParsedProtocolParameters.RentStructure
 	cfg.MinCostPerTimelockedBasicOutput = uint64(r.VByteCost) * uint64((refTimelockedBasicOutput).VBytes(&r, nil))
 	cfg.MinCostPerNonTimelockedBasicOutput = uint64(r.VByteCost) * uint64((refNonTimelockedbasicOutput).VBytes(&r, nil))
 
+	// parse Chrysalis snapshot
 	chrysalisSnapshot := readChrysalisSnapshot(err, cfg)
-	beautifiedChrysalisStats, err := json.MarshalIndent(chrysalisSnapshot.Stats, "", " ")
+	beautifiedChrysalisStats, err := json.MarshalIndent(chrysalisSnapshot.Metadata, "", " ")
 	if err != nil {
-		log.Panicf("unable to serialize chrysalis snapshot stats: %s", err)
+		log.Panicf("unable to serialize Chrysalis snapshot stats: %s", err)
 	}
 
-	log.Printf("read in chrysalis snapshot %s:", cfg.Snapshot.ChrysalisSnapshotFile)
+	log.Printf("read in Chrysalis snapshot %s:", cfg.Snapshot.ChrysalisSnapshotFile)
 	log.Printf(string(beautifiedChrysalisStats))
 
-	log.Println("converting to stardust ledger outputs:")
+	log.Println("converting Chrysalis outputs to Stardust outputs:")
 	stardustOutputIDs, stardustOutputs := chrysalisSnapshot.StardustOutputs()
-	log.Printf("outputs count under Stardust %d (from %d previously)", len(stardustOutputs), chrysalisSnapshot.Stats.TotalOutputsCount)
-	log.Printf("converted output + ids hash: %s / %s", outputsHash(stardustOutputs), outputIDsHash(stardustOutputIDs))
+	log.Printf("outputs count after conversion to Stardust outputs: %d (from %d previously)", len(stardustOutputs), chrysalisSnapshot.Metadata.TotalOutputsCount)
+	log.Printf("converted outputs + IDs hash: %s / %s", outputsHash(stardustOutputs), outputIDsHash(stardustOutputIDs))
 
 	log.Printf("generating outputs for supply increase with starting date %s", cfg.Vesting.StartingDate)
 	supplyIncreaseOutputIDs, supplyIncreaseOutputs := generateNewSupplyOutputs(cfg)
-	log.Printf("supply increase outputs + ids hash: %s / %s", outputsHash(supplyIncreaseOutputs), outputIDsHash(supplyIncreaseOutputIDs))
-	log.Printf("generated %d outputs for supply increase", len(supplyIncreaseOutputs))
+	log.Printf("supply increase outputs + IDs hash: %s / %s", outputsHash(supplyIncreaseOutputs), outputIDsHash(supplyIncreaseOutputIDs))
+	log.Printf("generated %d outputs to accomodate the supply increase", len(supplyIncreaseOutputs))
 
 	var csvImportOutputIDs []iotago3.OutputID
 	var csvImportOutputs []iotago3.Output
 	if cfg.CSV.Import.Active {
 		log.Printf("generating outputs from %s", cfg.CSV.Import.LedgerFile)
 		csvImportOutputIDs, csvImportOutputs = generateCSVOutputs(cfg)
-		log.Printf("CSV import outputs + ids hash: %s / %s", outputsHash(csvImportOutputs), outputIDsHash(csvImportOutputIDs))
+		log.Printf("CSV import outputs + IDs hash: %s / %s", outputsHash(csvImportOutputs), outputIDsHash(csvImportOutputIDs))
 		log.Printf("generated %d outputs from CSV import file", len(csvImportOutputs))
 	}
 
 	if cfg.Snapshot.SkipSnapshotGeneration {
-		log.Println("finished")
+		log.Println("finished (skipped snapshot generation)")
 		return
 	}
 
@@ -446,7 +461,7 @@ func main() {
 		log.Panicf("unable to create snapshot file: %s", err)
 	}
 
-	log.Println("writing merge snapshot...")
+	log.Println("writing snapshot...")
 	if _, err := snapshot.StreamFullSnapshotDataTo(
 		fileHandle,
 		fullHeader,
@@ -571,15 +586,16 @@ func generateNewSupplyOutputs(cfg *Config) ([]iotago3.OutputID, []iotago3.Output
 	log.Printf("using marker '%s' to mark supply increase outputs", iotago3.EncodeHex(outputMarker[:len(outputMarker)-2]))
 
 	for _, alloc := range cfg.Vesting.Allocations {
-		if alloc.Rewards != nil {
+		switch {
+		case alloc.Rewards != nil:
 			asmbTokensTotal, asmbTokensPerAddr := readAssemblyRewardFiles(cfg, alloc)
 			alloc.Addresses = convertAssemblyToIOTA(mustParseUint64(alloc.Rewards.Tokens), asmbTokensTotal, asmbTokensPerAddr)
-			log.Printf("there are %d addresses for '%s' receiving assembly rewards", len(alloc.Addresses), alloc.Name)
-		}
-		if alloc.Distribution != nil {
+			log.Printf("there are %d addresses for '%s' receiving Assembly rewards", len(alloc.Addresses), alloc.Name)
+
+		case alloc.Distribution != nil:
 			asmbTokensTotal, asmbTokensPerAddr := readAssemblyDistributionFile(cfg, alloc)
 			alloc.Addresses = convertAssemblyToIOTA(mustParseUint64(alloc.Distribution.Tokens), asmbTokensTotal, asmbTokensPerAddr)
-			log.Printf("there are %d addresses for '%s' assembly distribution", len(alloc.Addresses), alloc.Name)
+			log.Printf("there are %d addresses for '%s' Assembly distribution", len(alloc.Addresses), alloc.Name)
 		}
 		outputIDs, outputs := generateOutputsForGroup(alloc, cfg, outputMarker[:], &currentOutputIndex)
 		allOutputIDs = append(allOutputIDs, outputIDs...)
@@ -624,10 +640,15 @@ func generateOutputsForGroup(alloc Allocation, cfg *Config, supplyIncreaseMarker
 
 		outputIDs = append(outputIDs, newOutputIDs...)
 		outputs = append(outputs, newOutputs...)
-		writeOutputsCSV(cfg, newOutputIDs, newOutputs, path.Join(targetDir, fmt.Sprintf("%s-%s.csv", addrTuple.Name, addrTuple.Address)))
+
+		fileName := fmt.Sprintf("%s-%s-%s.csv", addrTuple.Tokens, addrTuple.Name, addrTuple.Address)
+		if len(addrTuple.Name) == 0 {
+			fileName = fmt.Sprintf("%s-%s.csv", addrTuple.Tokens, addrTuple.Address)
+		}
+		writeOutputsCSV(cfg, newOutputIDs, newOutputs, path.Join(targetDir, fileName))
 	}
 	writeSummaryCSV(cfg, unlockAccumBalance, path.Join(targetDir, "summary.csv"))
-	log.Printf("generated %d outputs, placed CSVs in %s, outputs+ids hashes %s/%s", len(outputs), targetDir, outputsHash(outputs), outputIDsHash(outputIDs))
+	log.Printf("generated %d outputs, placed CSVs in %s, outputs + IDs hashes %s/%s", len(outputs), targetDir, outputsHash(outputs), outputIDsHash(outputIDs))
 	return outputIDs, outputs
 }
 
@@ -666,7 +687,7 @@ func writeSummaryCSV(cfg *Config, timelocksAndFunds map[uint32]uint64, fileName 
 	})
 
 	for _, row := range rows {
-		unlockDate := time.Unix(int64(row.timelock), 0).String()
+		unlockDate := time.Unix(int64(row.timelock), 0).UTC().String()
 		if err := csvWriter.Write([]string{strconv.FormatUint(row.tokens, 10), unlockDate}); err != nil {
 			log.Panicf("unable to write out CSV record: %s", err)
 		}
@@ -709,7 +730,7 @@ func writeOutputsCSV(cfg *Config, outputIDs []iotago3.OutputID, outputs []iotago
 func readAssemblyRewardFiles(cfg *Config, alloc Allocation) (uint64, map[string]uint64) {
 	files, err := os.ReadDir(alloc.Rewards.Dir)
 	if err != nil {
-		log.Panicf("unable to read rewards directory: %s", err)
+		log.Panicf("unable to read Assembly rewards directory: %s", err)
 	}
 
 	type rewards struct {
@@ -725,14 +746,14 @@ func readAssemblyRewardFiles(cfg *Config, alloc Allocation) (uint64, map[string]
 
 		r := &rewards{}
 		if err := ioutils.ReadJSONFromFile(path.Join(alloc.Rewards.Dir, f.Name()), r); err != nil {
-			log.Panicf("unable to open rewards file %s: %s", f.Name(), err)
+			log.Panicf("unable to open Assembly rewards file %s: %s", f.Name(), err)
 		}
 
 		for k, v := range r.Rewards {
 			var addr iotago3.Ed25519Address
 			addrBytes, err := hex.DecodeString(k)
 			if err != nil {
-				log.Panicf("unable to decode hex encoded address '%s' in assembly reward file: %s", k, err)
+				log.Panicf("unable to decode hex encoded address '%s' in Assembly reward file: %s", k, err)
 			}
 			copy(addr[:], addrBytes)
 
@@ -741,7 +762,7 @@ func readAssemblyRewardFiles(cfg *Config, alloc Allocation) (uint64, map[string]
 			accumulatedRewardsPerAddress[bech32AddrStr] += v
 		}
 	}
-	log.Printf("total rewards %d on %d addresses", totalRewards, len(accumulatedRewardsPerAddress))
+	log.Printf("total Assembly rewards %d on %d addresses", totalRewards, len(accumulatedRewardsPerAddress))
 
 	return totalRewards, accumulatedRewardsPerAddress
 }
@@ -749,7 +770,7 @@ func readAssemblyRewardFiles(cfg *Config, alloc Allocation) (uint64, map[string]
 func readAssemblyDistributionFile(cfg *Config, alloc Allocation) (uint64, map[string]uint64) {
 	asmbDistroData, err := os.ReadFile(alloc.Distribution.File)
 	if err != nil {
-		log.Panicf("unable to read assembly distribution file: %s", err)
+		log.Panicf("unable to read Assembly distribution file: %s", err)
 	}
 
 	type tuple struct {
@@ -759,7 +780,7 @@ func readAssemblyDistributionFile(cfg *Config, alloc Allocation) (uint64, map[st
 
 	var tuples []tuple
 	if err := json.Unmarshal(asmbDistroData, &tuples); err != nil {
-		log.Panicf("unable to parse assembly distribution file: %s", err)
+		log.Panicf("unable to parse Assembly distribution file: %s", err)
 	}
 
 	var totalRewards uint64
@@ -768,13 +789,13 @@ func readAssemblyDistributionFile(cfg *Config, alloc Allocation) (uint64, map[st
 		var addr iotago3.Ed25519Address
 
 		if _, excluded := alloc.Distribution.Exclude[tuple.Base58Addr]; excluded {
-			log.Printf("skipping assembly distribution address '%s' with %d balance", tuple.Base58Addr, tuple.Balance)
+			log.Printf("skipping Assembly distribution address '%s' with %d balance", tuple.Base58Addr, tuple.Balance)
 			continue
 		}
 
 		assemblyAddressBytes, err := base58.Decode(tuple.Base58Addr)
 		if err != nil {
-			log.Panicf("unable to decode base58 assembly address '%s': %s", tuple.Base58Addr, err)
+			log.Panicf("unable to decode base58 Assembly address '%s': %s", tuple.Base58Addr, err)
 		}
 		// is prefixed with zero byte to indicate address type in distribution file
 		copy(addr[:], assemblyAddressBytes[1:])
@@ -783,7 +804,7 @@ func readAssemblyDistributionFile(cfg *Config, alloc Allocation) (uint64, map[st
 		totalRewards += tuple.Balance
 		asmbTokensPerAddr[bech32AddrStr] += tuple.Balance
 	}
-	log.Printf("total assembly tokens %d on %d addresses", totalRewards, len(asmbDistroData))
+	log.Printf("total Assembly tokens %d on %d addresses", totalRewards, len(asmbDistroData))
 
 	return totalRewards, asmbTokensPerAddr
 }
@@ -800,7 +821,7 @@ func convertAssemblyToIOTA(iotaTokensToDistribute uint64, asmbTokensTotal uint64
 
 	tuples := make([]balancetuple, 0)
 	for addr, assemblyTokens := range asmbTokensPerAddr {
-		addr, err := parseBech32Address(addr)
+		parsedAddr, err := parseBech32Address(addr)
 		if err != nil {
 			log.Panicf("unable to parse address %s: %s", addr, err)
 		}
@@ -809,7 +830,7 @@ func convertAssemblyToIOTA(iotaTokensToDistribute uint64, asmbTokensTotal uint64
 		iotaRewards := uint64(iotaRewardsFloat64)
 		remainder -= iotaRewards
 		tuples = append(tuples, balancetuple{
-			addr, assemblyTokens,
+			parsedAddr, assemblyTokens,
 			iotaRewards, iotaRewardsFloat64 - float64(iotaRewards)},
 		)
 	}
@@ -951,7 +972,7 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 		// ledger
 		func(output *chrysalissnapshot.Output) error {
 			key := output.Address.(*iotago2.Ed25519Address).String()
-			chrysalisSnapshot.Stats.TotalOutputsCount++
+			chrysalisSnapshot.Metadata.TotalOutputsCount++
 
 			switch {
 			case output.OutputType == iotago2.OutputSigLockedDustAllowanceOutput:
@@ -961,7 +982,7 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 				}
 				dustAllowanceOutputsSlice = append(dustAllowanceOutputsSlice, output)
 				chrysalisSnapshot.DustAllowanceOutputs[key] = dustAllowanceOutputsSlice
-				chrysalisSnapshot.Stats.DustAllowanceOutputsCount++
+				chrysalisSnapshot.Metadata.DustAllowanceOutputsCount++
 
 			case isDustOutput(output):
 				dustOutputsSlice, has := chrysalisSnapshot.DustOutputs[key]
@@ -970,21 +991,21 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 				}
 				dustOutputsSlice = append(dustOutputsSlice, output)
 				chrysalisSnapshot.DustOutputs[key] = dustOutputsSlice
-				chrysalisSnapshot.Stats.DustOutputsCount++
-				chrysalisSnapshot.Stats.TotalDustBalance += output.Amount
+				chrysalisSnapshot.Metadata.DustOutputsCount++
+				chrysalisSnapshot.Metadata.TotalDustBalance += output.Amount
 
 			default:
 				chrysalisSnapshot.Outputs = append(chrysalisSnapshot.Outputs, output)
 			}
 
-			chrysalisSnapshot.Stats.TotalBalanceSumOutputs += output.Amount
+			chrysalisSnapshot.Metadata.TotalBalanceSumOutputs += output.Amount
 			return nil
 		},
 		// treasury
 		func(output *chrysalisutxo.TreasuryOutput) error {
-			chrysalisSnapshot.Stats.TotalOutputsCount++
+			chrysalisSnapshot.Metadata.TotalOutputsCount++
 			chrysalisSnapshot.TreasuryOutput = output
-			chrysalisSnapshot.Stats.TreasuryFunds = output.Amount
+			chrysalisSnapshot.Metadata.Treasury = output.Amount
 			return nil
 		},
 		// milestone diffs
@@ -995,7 +1016,7 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 		log.Panicf("unable to read in chrysalis snapshot data: %s", err)
 	}
 
-	chrysalisSnapshot.Stats.TotalBalance = chrysalisSnapshot.Stats.TotalBalanceSumOutputs + chrysalisSnapshot.Stats.TreasuryFunds
+	chrysalisSnapshot.Metadata.TotalBalance = chrysalisSnapshot.Metadata.TotalBalanceSumOutputs + chrysalisSnapshot.Metadata.Treasury
 
 	return chrysalisSnapshot
 }
