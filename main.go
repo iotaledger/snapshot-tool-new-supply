@@ -648,8 +648,37 @@ func generateOutputsForGroup(alloc Allocation, cfg *Config, supplyIncreaseMarker
 		writeOutputsCSV(cfg, newOutputIDs, newOutputs, path.Join(targetDir, fileName))
 	}
 	writeSummaryCSV(cfg, unlockAccumBalance, path.Join(targetDir, "summary.csv"))
+	writeAddrListCSV(cfg, alloc.Addresses, path.Join(targetDir, "address_balances.csv"))
 	log.Printf("generated %d outputs, placed CSVs in %s, outputs + IDs hashes %s/%s", len(outputs), targetDir, outputsHash(outputs), outputIDsHash(outputIDs))
 	return outputIDs, outputs
+}
+
+func writeAddrListCSV(cfg *Config, addrList []AddrBalanceTuple, fileName string) {
+	if !cfg.CSV.Export.Active {
+		return
+	}
+	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0777)
+	if err != nil {
+		log.Panicf("unable to write csv %s: %s", fileName, err)
+	}
+	defer func(f *os.File) {
+		if err := f.Close(); err != nil {
+			log.Panicf("unable to close file %s", f.Name())
+		}
+	}(f)
+
+	csvWriter := csv.NewWriter(f)
+	defer csvWriter.Flush()
+
+	if err := csvWriter.Write([]string{"Address", "Tokens"}); err != nil {
+		log.Panicf("unable to write out CSV header: %s", err)
+	}
+
+	for _, addr := range addrList {
+		if err := csvWriter.Write([]string{addr.Address, addr.Tokens}); err != nil {
+			log.Panicf("unable to write out CSV record: %s", err)
+		}
+	}
 }
 
 func writeSummaryCSV(cfg *Config, timelocksAndFunds map[uint32]uint64, fileName string) {
