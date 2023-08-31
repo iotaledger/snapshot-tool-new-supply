@@ -357,29 +357,49 @@ func main() {
 		return
 	}
 
+	// check if the infos from the chrysalis snapshot fit the config
+	if uint32(cfg.Snapshot.GenesisMilestoneIndex) != chrysalisSnapshot.Header.LedgerMilestoneIndex {
+		log.Panicf("the given GenesisMilestoneIndex (%d) in the config does not match the LedgerMilestoneIndex (%d) in the snapshot", cfg.Snapshot.GenesisMilestoneIndex, chrysalisSnapshot.Header.LedgerMilestoneIndex)
+	}
+	if uint32(cfg.Snapshot.TargetMilestoneIndex) != chrysalisSnapshot.Header.LedgerMilestoneIndex {
+		log.Panicf("the given TargetMilestoneIndex (%d) in the config does not match the LedgerMilestoneIndex (%d) in the snapshot", cfg.Snapshot.TargetMilestoneIndex, chrysalisSnapshot.Header.LedgerMilestoneIndex)
+	}
+	if uint32(cfg.Snapshot.LedgerMilestoneIndex) != chrysalisSnapshot.Header.LedgerMilestoneIndex {
+		log.Panicf("the given LedgerMilestoneIndex (%d) in the config does not match the LedgerMilestoneIndex (%d) in the snapshot", cfg.Snapshot.LedgerMilestoneIndex, chrysalisSnapshot.Header.LedgerMilestoneIndex)
+	}
+	if uint64(cfg.Snapshot.TargetMilestoneTimestamp) != chrysalisSnapshot.Header.Timestamp {
+		log.Panicf("the given TargetMilestoneTimestamp (%d) in the config does not match the Timestamp (%d) in the snapshot", cfg.Snapshot.TargetMilestoneTimestamp, chrysalisSnapshot.Header.Timestamp)
+	}
+	if treasuryTokens != chrysalisSnapshot.TreasuryOutput.Amount {
+		log.Panicf("the given TreasuryTokens (%d) in the config do not match the TreasuryOutput (%d) in the snapshot", treasuryTokens, chrysalisSnapshot.TreasuryOutput.Amount)
+	}
+
+	genesisMilestoneIndex := iotago3.MilestoneIndex(chrysalisSnapshot.Header.LedgerMilestoneIndex)
+	genesisMilestoneTimestamp := uint32(chrysalisSnapshot.Header.Timestamp)
+
 	// create snapshot file
-	var targetIndex iotago3.MilestoneIndex
 	fullHeader := &stardust.FullSnapshotHeader{
 		Version:                  stardust.SupportedFormatVersion,
 		Type:                     stardust.Full,
-		GenesisMilestoneIndex:    iotago3.MilestoneIndex(cfg.Snapshot.GenesisMilestoneIndex),
-		TargetMilestoneIndex:     iotago3.MilestoneIndex(cfg.Snapshot.TargetMilestoneIndex),
-		TargetMilestoneTimestamp: uint32(cfg.Snapshot.TargetMilestoneTimestamp),
+		GenesisMilestoneIndex:    genesisMilestoneIndex,
+		TargetMilestoneIndex:     genesisMilestoneIndex,
+		TargetMilestoneTimestamp: genesisMilestoneTimestamp,
 		TargetMilestoneID: func() iotago3.MilestoneID {
 			// TargetMilestoneID doesn't matter for the new genesis snapshot.
 			// It is not used in the consensus, only to check if a delta snapshot can be applied.
 			return iotago3.MilestoneID{}
 		}(),
-		LedgerMilestoneIndex: iotago3.MilestoneIndex(cfg.Snapshot.LedgerMilestoneIndex),
+		LedgerMilestoneIndex: genesisMilestoneIndex,
 		TreasuryOutput: &stardust.TreasuryOutput{
 			MilestoneID: chrysalisSnapshot.Header.TreasuryOutput.MilestoneID,
 			Amount:      treasuryTokens,
 		},
 		ProtocolParamsMilestoneOpt: &iotago3.ProtocolParamsMilestoneOpt{
-			TargetMilestoneIndex: targetIndex,
+			TargetMilestoneIndex: chrysalisSnapshot.Header.LedgerMilestoneIndex,
 			ProtocolVersion:      cfg.ProtocolParameters.Version,
 			Params:               protoParamsBytes,
 		},
+		// will be overwritten in StreamFullSnapshotDataTo
 		OutputCount:        0,
 		MilestoneDiffCount: 0,
 		SEPCount:           0,
@@ -401,19 +421,19 @@ func main() {
 	}
 
 	// unspent transaction outputs
-	var chrysalisLedgerIndex, supplyIncreaseOutputsIndex, csvImportOutputsIndex int
+	var stardustOutputsIndex, supplyIncreaseOutputsIndex, csvImportOutputsIndex int
 	var nonTreasuryOutputsSupplyTotal uint64
 	outputProducerFunc := func() (*stardust.Output, error) {
 
-		if chrysalisLedgerIndex < len(stardustOutputs) {
+		if stardustOutputsIndex < len(stardustOutputs) {
 			output := stardust.CreateOutput(
-				stardustOutputIDs[chrysalisLedgerIndex],
+				stardustOutputIDs[stardustOutputsIndex],
 				iotago3.EmptyBlockID(),
-				0,
-				0,
-				stardustOutputs[chrysalisLedgerIndex])
+				genesisMilestoneIndex,
+				genesisMilestoneTimestamp,
+				stardustOutputs[stardustOutputsIndex])
 			nonTreasuryOutputsSupplyTotal += output.Deposit()
-			chrysalisLedgerIndex++
+			stardustOutputsIndex++
 			return output, nil
 		}
 
@@ -421,20 +441,20 @@ func main() {
 			output := stardust.CreateOutput(
 				supplyIncreaseOutputIDs[supplyIncreaseOutputsIndex],
 				iotago3.EmptyBlockID(),
-				0,
-				0,
+				genesisMilestoneIndex,
+				genesisMilestoneTimestamp,
 				supplyIncreaseOutputs[supplyIncreaseOutputsIndex])
 			nonTreasuryOutputsSupplyTotal += output.Deposit()
 			supplyIncreaseOutputsIndex++
 			return output, nil
 		}
 
-		if len(csvImportOutputIDs) > 0 && csvImportOutputsIndex < len(csvImportOutputs) {
+		if csvImportOutputsIndex < len(csvImportOutputs) {
 			output := stardust.CreateOutput(
 				csvImportOutputIDs[csvImportOutputsIndex],
 				iotago3.EmptyBlockID(),
-				0,
-				0,
+				genesisMilestoneIndex,
+				genesisMilestoneTimestamp,
 				csvImportOutputs[csvImportOutputsIndex])
 			nonTreasuryOutputsSupplyTotal += output.Deposit()
 			csvImportOutputsIndex++
@@ -510,7 +530,7 @@ func main() {
 
 	log.Printf("snapshot creation successful! blake2b-256 hash %s", hex.EncodeToString(hash.Sum(nil)))
 	log.Printf("supply in ledger outputs %d, treasury %d, total %d", nonTreasuryOutputsSupplyTotal, treasuryTokens, nonTreasuryOutputsSupplyTotal+treasuryTokens)
-	log.Printf("total outputs written to snapshot: %d", len(stardustOutputs)+len(supplyIncreaseOutputs))
+	log.Printf("total outputs written to snapshot: %d", len(stardustOutputs)+len(supplyIncreaseOutputs)+len(csvImportOutputs))
 }
 
 func generateCSVOutputs(cfg *Config) ([]iotago3.OutputID, []iotago3.Output) {
