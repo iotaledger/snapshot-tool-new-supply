@@ -843,9 +843,11 @@ func convertAssemblyToIOTA(iotaTokensToDistribute uint64, asmbTokensTotal uint64
 		iotaRewards := uint64(iotaRewardsFloat64)
 		remainder -= iotaRewards
 		tuples = append(tuples, balancetuple{
-			parsedAddr, assemblyTokens,
-			iotaRewards, iotaRewardsFloat64 - float64(iotaRewards)},
-		)
+			address:           parsedAddr,
+			assemblyRewards:   assemblyTokens,
+			iotaRewards:       iotaRewards,
+			divisionRemainder: iotaRewardsFloat64 - float64(iotaRewards),
+		})
 	}
 
 	log.Printf("iota remainder to distribute: %d", remainder)
@@ -861,6 +863,8 @@ func convertAssemblyToIOTA(iotaTokensToDistribute uint64, asmbTokensTotal uint64
 	var addresses []AddrBalanceTuple
 	for i := 0; i < len(tuples); i++ {
 		if remainder > 0 {
+			// the missing remainder per address can only be between 0 and 1 IOTA,
+			// so we fill the missing IOTA to the addresses with highest remainder as long as IOTA are left.
 			tuples[i].iotaRewards += 1
 			remainder--
 		}
