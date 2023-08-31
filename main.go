@@ -303,8 +303,8 @@ func main() {
 
 	// compute storage deposit for minimal basic outputs (+timelocked)
 	r := cfg.ParsedProtocolParameters.RentStructure
-	cfg.MinCostPerTimelockedBasicOutput = uint64(r.VByteCost) * uint64((refTimelockedBasicOutput).VBytes(&r, nil))
-	cfg.MinCostPerNonTimelockedBasicOutput = uint64(r.VByteCost) * uint64((refNonTimelockedbasicOutput).VBytes(&r, nil))
+	cfg.MinCostPerTimelockedBasicOutput = r.MinRent(refTimelockedBasicOutput)
+	cfg.MinCostPerNonTimelockedBasicOutput = r.MinRent(refNonTimelockedbasicOutput)
 
 	// parse Chrysalis snapshot
 	chrysalisSnapshot := readChrysalisSnapshot(err, cfg)
