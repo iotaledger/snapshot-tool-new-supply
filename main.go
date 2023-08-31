@@ -955,6 +955,8 @@ func generateVestingOutputs(
 	var controlSum uint64
 	investorTimelocks := vestingTimelocks(alloc, cfg.Vesting.StartingDate)
 	initialUnlock := uint64(float64(vestedTokens) * alloc.Unlocks.InitialUnlock)
+
+	// add the remainer of the funds that wouldn't fit into the fundsPerUnlock into the initialUnlock (to avoid fractions)
 	initialUnlock += (vestedTokens - initialUnlock) % uint64(len(investorTimelocks))
 	fundsPerUnlock := (vestedTokens - initialUnlock) / uint64(len(investorTimelocks))
 
