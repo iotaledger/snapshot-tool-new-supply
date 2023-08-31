@@ -101,7 +101,7 @@ type AddrBalanceTuple struct {
 }
 
 var (
-	dayDuration      = time.Duration(86400000000000)
+	dayDuration      = time.Duration(time.Hour * 24)
 	weeklyDuration   = dayDuration * 7
 	biWeeklyDuration = weeklyDuration * 2
 	monthlyDuration  = dayDuration * 30
