@@ -1027,6 +1027,7 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 		},
 		// milestone diffs
 		func(milestoneDiff *chrysalis.MilestoneDiff) error {
+			log.Panic("the snapshot should not contain a milestone diff")
 			return nil
 		},
 	); err != nil {
@@ -1034,6 +1035,22 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 	}
 
 	chrysalisSnapshot.Metadata.TotalBalance = chrysalisSnapshot.Metadata.TotalBalanceSumOutputs + chrysalisSnapshot.Metadata.Treasury
+
+	if chrysalisSnapshot.Header.Type != chrysalis.Full {
+		log.Panic("the snapshot should be a FULL snapshot")
+	}
+
+	if chrysalisSnapshot.SolidEntryPointMessageID == nil {
+		log.Panic("the snapshot should contain a SEP")
+	}
+
+	if chrysalisSnapshot.Header.LedgerMilestoneIndex != chrysalisSnapshot.Header.SEPMilestoneIndex {
+		log.Panic("the snapshot must be a global snapshot")
+	}
+
+	if chrysalisSnapshot.Header.TreasuryOutput == nil {
+		log.Panic("the snapshot must contain a treasury output")
+	}
 
 	return chrysalisSnapshot
 }
