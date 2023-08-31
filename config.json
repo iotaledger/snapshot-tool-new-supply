@@ -20,7 +20,6 @@
     "outputSnapshotFile": "the_merge_snapshot.bin",
     "genesisMilestoneIndex": 7143515,
     "ledgerMilestoneIndex": 7143515,
-    "targetMilestoneId": "0xb85efb96f7de93cde48af7aa89e589ce332a1c621c79eeca5b93e780a458d92d",
     "targetMilestoneIndex": 7143515,
     "targetMilestoneTimestamp": 1691134625
   },

@@ -51,7 +51,6 @@ type Config struct {
 		GenesisMilestoneIndex    int    `json:"genesisMilestoneIndex"`
 		TargetMilestoneIndex     int    `json:"targetMilestoneIndex"`
 		TargetMilestoneTimestamp int    `json:"targetMilestoneTimestamp"`
-		TargetMilestoneID        string `json:"targetMilestoneID"`
 		LedgerMilestoneIndex     int    `json:"ledgerMilestoneIndex"`
 	} `json:"snapshot"`
 	CSV struct {
@@ -350,16 +349,9 @@ func main() {
 		TargetMilestoneIndex:     iotago3.MilestoneIndex(cfg.Snapshot.TargetMilestoneIndex),
 		TargetMilestoneTimestamp: uint32(cfg.Snapshot.TargetMilestoneTimestamp),
 		TargetMilestoneID: func() iotago3.MilestoneID {
-			if len(cfg.Snapshot.TargetMilestoneID) == 0 {
-				return iotago3.MilestoneID{}
-			}
-			milestoneIDBytes, err := iotago3.DecodeHex(cfg.Snapshot.TargetMilestoneID)
-			if err != nil {
-				log.Panicf("unable to convert target milestone ID %s: %s", cfg.Snapshot.TargetMilestoneID, err)
-			}
-			var msID iotago3.MilestoneID
-			copy(msID[:], milestoneIDBytes)
-			return msID
+			// TargetMilestoneID doesn't matter for the new genesis snapshot.
+			// It is not used in the consensus, only to check if a delta snapshot can be applied.
+			return iotago3.MilestoneID{}
 		}(),
 		LedgerMilestoneIndex: iotago3.MilestoneIndex(cfg.Snapshot.LedgerMilestoneIndex),
 		TreasuryOutput: &stardust.TreasuryOutput{
