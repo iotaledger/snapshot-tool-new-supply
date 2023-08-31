@@ -20,20 +20,12 @@ import (
 
 	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/iotaledger/hive.go/serializer/v2"
-	"github.com/iotaledger/hornet/pkg/model/hornet"
-	"github.com/iotaledger/hornet/v2/pkg/tpkg"
 	iotago2 "github.com/iotaledger/iota.go/v2"
-
-	chrysalisutxo "github.com/iotaledger/hornet/pkg/model/utxo"
-	chrysalissnapshot "github.com/iotaledger/hornet/pkg/snapshot"
-
-	// don't move this import, it fixes the issue of the multiple hornet versions
-	// declaring the same command line flags and thus crashing the program up on startup
-	_ "github.com/iotaledger/the-mergerator/pkg"
-
-	"github.com/iotaledger/hornet/v2/pkg/model/utxo"
-	"github.com/iotaledger/hornet/v2/pkg/snapshot"
 	iotago3 "github.com/iotaledger/iota.go/v3"
+
+	"github.com/iotaledger/the-mergerator/pkg/hornet/chrysalis"
+	"github.com/iotaledger/the-mergerator/pkg/hornet/stardust"
+	"github.com/iotaledger/the-mergerator/pkg/hornet/stardust/tpkg"
 )
 
 type Config struct {
@@ -161,7 +153,7 @@ func NewChrysalisSnapshot() *ChrysalisSnapshot {
 	}
 }
 
-type ChrysalisOutputs []*chrysalissnapshot.Output
+type ChrysalisOutputs []*chrysalis.Output
 
 func (outputs ChrysalisOutputs) ConvertToStardust() ([]iotago3.OutputID, []iotago3.Output) {
 	var stardustOutputs []iotago3.Output
@@ -176,7 +168,7 @@ func (outputs ChrysalisOutputs) ConvertToStardust() ([]iotago3.OutputID, []iotag
 // ChrysalisSnapshot represents a Chrysalis snapshot.
 type ChrysalisSnapshot struct {
 	// Header of the snapshot
-	Header *chrysalissnapshot.ReadFileHeader
+	Header *chrysalis.ReadFileHeader
 	// All ledger outputs which are not dust allowance, dust or treasury outputs
 	Outputs ChrysalisOutputs
 	// All dust allowance dust outputs mapped by their address
@@ -184,11 +176,11 @@ type ChrysalisSnapshot struct {
 	// All dust outputs mapped by their address
 	DustOutputs map[string]ChrysalisOutputs
 	// Treasury output
-	TreasuryOutput *chrysalisutxo.TreasuryOutput
+	TreasuryOutput *chrysalis.TreasuryOutput
 	// Metadata of the snapshot
 	Metadata ChrysalisSnapshotMetadata
 	// Solid Entry Point
-	SolidEntryPointMessageID hornet.MessageID
+	SolidEntryPointMessageID chrysalis.MessageID
 }
 
 // StardustOutputs converts the Chrysalis outputs into their Stardust representation.
@@ -223,7 +215,7 @@ func (s *ChrysalisSnapshot) StardustOutputs() ([]iotago3.OutputID, []iotago3.Out
 		// add dust outputs to "first" dust allowance output
 		if has {
 			// makes the target dust allowance output deterministic
-			sort.Sort(chrysalissnapshot.LexicalOrderedOutputs(tuple.dustAllowanceOutputs))
+			sort.Sort(chrysalis.LexicalOrderedOutputs(tuple.dustAllowanceOutputs))
 
 			// turn on the vacuum
 			var dustVacuumed uint64
@@ -242,7 +234,7 @@ func (s *ChrysalisSnapshot) StardustOutputs() ([]iotago3.OutputID, []iotago3.Out
 	return stardustOutputIDs, stardustOutputs
 }
 
-func convertChrysalisToStardust(output *chrysalissnapshot.Output) iotago3.Output {
+func convertChrysalisToStardust(output *chrysalis.Output) iotago3.Output {
 	addr := iotago3.Ed25519Address{}
 	copy(addr[:], output.Address.(*iotago2.Ed25519Address)[:])
 	addrUnlock := &iotago3.AddressUnlockCondition{Address: &addr}
@@ -351,9 +343,9 @@ func main() {
 
 	// create snapshot file
 	var targetIndex iotago3.MilestoneIndex
-	fullHeader := &snapshot.FullSnapshotHeader{
-		Version:                  snapshot.SupportedFormatVersion,
-		Type:                     snapshot.Full,
+	fullHeader := &stardust.FullSnapshotHeader{
+		Version:                  stardust.SupportedFormatVersion,
+		Type:                     stardust.Full,
 		GenesisMilestoneIndex:    iotago3.MilestoneIndex(cfg.Snapshot.GenesisMilestoneIndex),
 		TargetMilestoneIndex:     iotago3.MilestoneIndex(cfg.Snapshot.TargetMilestoneIndex),
 		TargetMilestoneTimestamp: uint32(cfg.Snapshot.TargetMilestoneTimestamp),
@@ -370,7 +362,7 @@ func main() {
 			return msID
 		}(),
 		LedgerMilestoneIndex: iotago3.MilestoneIndex(cfg.Snapshot.LedgerMilestoneIndex),
-		TreasuryOutput: &utxo.TreasuryOutput{
+		TreasuryOutput: &stardust.TreasuryOutput{
 			MilestoneID: chrysalisSnapshot.Header.TreasuryOutput.MilestoneID,
 			Amount:      treasuryTokens,
 		},
@@ -392,7 +384,7 @@ func main() {
 	entryPointAdded := false
 	solidEntryPointProducerFunc := func() (iotago3.BlockID, error) {
 		if entryPointAdded {
-			return solidEntryPointBlockID, snapshot.ErrNoMoreSEPToProduce
+			return solidEntryPointBlockID, stardust.ErrNoMoreSEPToProduce
 		}
 		entryPointAdded = true
 
@@ -402,10 +394,10 @@ func main() {
 	// unspent transaction outputs
 	var chrysalisLedgerIndex, supplyIncreaseOutputsIndex, csvImportOutputsIndex int
 	var nonTreasuryOutputsSupplyTotal uint64
-	outputProducerFunc := func() (*utxo.Output, error) {
+	outputProducerFunc := func() (*stardust.Output, error) {
 
 		if chrysalisLedgerIndex < len(stardustOutputs) {
-			output := utxo.CreateOutput(
+			output := stardust.CreateOutput(
 				stardustOutputIDs[chrysalisLedgerIndex],
 				iotago3.EmptyBlockID(),
 				0,
@@ -417,7 +409,7 @@ func main() {
 		}
 
 		if supplyIncreaseOutputsIndex < len(supplyIncreaseOutputs) {
-			output := utxo.CreateOutput(
+			output := stardust.CreateOutput(
 				supplyIncreaseOutputIDs[supplyIncreaseOutputsIndex],
 				iotago3.EmptyBlockID(),
 				0,
@@ -429,7 +421,7 @@ func main() {
 		}
 
 		if len(csvImportOutputIDs) > 0 && csvImportOutputsIndex < len(csvImportOutputs) {
-			output := utxo.CreateOutput(
+			output := stardust.CreateOutput(
 				csvImportOutputIDs[csvImportOutputsIndex],
 				iotago3.EmptyBlockID(),
 				0,
@@ -445,7 +437,7 @@ func main() {
 	}
 
 	// milestone diffs
-	milestoneDiffProducerFunc := func() (*snapshot.MilestoneDiff, error) {
+	milestoneDiffProducerFunc := func() (*stardust.MilestoneDiff, error) {
 		// no milestone diffs needed
 		return nil, nil
 	}
@@ -461,8 +453,8 @@ func main() {
 		log.Panicf("unable to create snapshot file: %s", err)
 	}
 
-	log.Println("writing snapshot...")
-	if _, err := snapshot.StreamFullSnapshotDataTo(
+	log.Println("writing merge snapshot...")
+	if err := stardust.StreamFullSnapshotDataTo(
 		fileHandle,
 		fullHeader,
 		outputProducerFunc,
@@ -984,14 +976,14 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 
 	chrysalisSnapshot := NewChrysalisSnapshot()
 
-	if err := chrysalissnapshot.StreamSnapshotDataFrom(chrysalisSnapshotFile,
+	if err := chrysalis.StreamSnapshotDataFrom(chrysalisSnapshotFile,
 		// header
-		func(header *chrysalissnapshot.ReadFileHeader) error {
+		func(header *chrysalis.ReadFileHeader) error {
 			chrysalisSnapshot.Header = header
 			return nil
 		},
 		// SEPs
-		func(id hornet.MessageID) error {
+		func(id chrysalis.MessageID) error {
 			if chrysalisSnapshot.SolidEntryPointMessageID != nil {
 				log.Panic("snapshot contains more than one SEP")
 			}
@@ -999,7 +991,7 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 			return nil
 		},
 		// ledger
-		func(output *chrysalissnapshot.Output) error {
+		func(output *chrysalis.Output) error {
 			key := output.Address.(*iotago2.Ed25519Address).String()
 			chrysalisSnapshot.Metadata.TotalOutputsCount++
 
@@ -1031,14 +1023,14 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 			return nil
 		},
 		// treasury
-		func(output *chrysalisutxo.TreasuryOutput) error {
+		func(output *chrysalis.TreasuryOutput) error {
 			chrysalisSnapshot.Metadata.TotalOutputsCount++
 			chrysalisSnapshot.TreasuryOutput = output
 			chrysalisSnapshot.Metadata.Treasury = output.Amount
 			return nil
 		},
 		// milestone diffs
-		func(milestoneDiff *chrysalissnapshot.MilestoneDiff) error {
+		func(milestoneDiff *chrysalis.MilestoneDiff) error {
 			return nil
 		},
 	); err != nil {
@@ -1050,6 +1042,6 @@ func readChrysalisSnapshot(err error, cfg *Config) *ChrysalisSnapshot {
 	return chrysalisSnapshot
 }
 
-func isDustOutput(output *chrysalissnapshot.Output) bool {
+func isDustOutput(output *chrysalis.Output) bool {
 	return output.Amount < 1000000
 }
