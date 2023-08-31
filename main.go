@@ -817,7 +817,7 @@ func readAssemblyDistributionFile(cfg *Config, alloc Allocation) (uint64, map[st
 		totalRewards += tuple.Balance
 		asmbTokensPerAddr[bech32AddrStr] += tuple.Balance
 	}
-	log.Printf("total Assembly tokens %d on %d addresses", totalRewards, len(asmbDistroData))
+	log.Printf("total Assembly tokens %d on %d addresses", totalRewards, len(asmbTokensPerAddr))
 
 	return totalRewards, asmbTokensPerAddr
 }
