@@ -199,9 +199,11 @@ func (s *ChrysalisSnapshot) StardustOutputs() ([]iotago3.OutputID, []iotago3.Out
 	// sort dust allowance outputs away from map for determinism
 	dustAllowanceTuples := make([]dustallowancetuple, 0)
 	for addr, dustAllowOutputs := range s.DustAllowanceOutputs {
+		outputs := dustAllowOutputs
+
 		dustAllowanceTuples = append(dustAllowanceTuples, dustallowancetuple{
 			addr:                 addr,
-			dustAllowanceOutputs: dustAllowOutputs,
+			dustAllowanceOutputs: outputs,
 		})
 	}
 
@@ -209,25 +211,40 @@ func (s *ChrysalisSnapshot) StardustOutputs() ([]iotago3.OutputID, []iotago3.Out
 		return strings.Compare(dustAllowanceTuples[i].addr, dustAllowanceTuples[j].addr) < 0
 	})
 
+	// check if we consumed all dust outputs, therefore create a copy of the map
+	dustOutputsMap := make(map[string]ChrysalisOutputs)
+	for k, o := range s.DustOutputs {
+		output := o
+		dustOutputsMap[k] = output
+	}
+
 	for _, tuple := range dustAllowanceTuples {
-		dustOutputs, has := s.DustOutputs[tuple.addr]
+		dustOutputs, has := dustOutputsMap[tuple.addr]
 		// add dust outputs to "first" dust allowance output
 		if has {
-			// makes the target dust allowance output deterministic
-			sort.Sort(chrysalis.LexicalOrderedOutputs(tuple.dustAllowanceOutputs))
+			// delete it from the map
+			delete(dustOutputsMap, tuple.addr)
 
 			// turn on the vacuum
 			var dustVacuumed uint64
 			for _, dustOutput := range dustOutputs {
 				dustVacuumed += dustOutput.Amount
 			}
-			// add dust bag
+
+			// makes the target dust allowance output deterministic
+			sort.Sort(chrysalis.LexicalOrderedOutputs(tuple.dustAllowanceOutputs))
+
+			// add dust bag to the first dust allowance output of that address (lexically ordered)
 			tuple.dustAllowanceOutputs[0].Amount += dustVacuumed
 		}
 
 		dustOutputIDs, convDustOutputs := tuple.dustAllowanceOutputs.ConvertToStardust()
 		stardustOutputIDs = append(stardustOutputIDs, dustOutputIDs...)
 		stardustOutputs = append(stardustOutputs, convDustOutputs...)
+	}
+
+	if len(dustOutputsMap) > 0 {
+		log.Panic("not all dust outputs could be vaccumed, seems like dust allowance is missing")
 	}
 
 	return stardustOutputIDs, stardustOutputs
