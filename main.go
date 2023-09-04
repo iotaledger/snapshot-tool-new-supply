@@ -214,8 +214,8 @@ func (s *ChrysalisSnapshot) StardustOutputs() ([]iotago3.OutputID, []iotago3.Out
 	// check if we consumed all dust outputs, therefore create a copy of the map
 	dustOutputsMap := make(map[string]ChrysalisOutputs)
 	for k, o := range s.DustOutputs {
-		output := o
-		dustOutputsMap[k] = output
+		outputs := o
+		dustOutputsMap[k] = outputs
 	}
 
 	for _, tuple := range dustAllowanceTuples {
