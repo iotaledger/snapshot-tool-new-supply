@@ -650,13 +650,17 @@ func generateOutputsForGroup(alloc Allocation, cfg *Config, supplyIncreaseMarker
 			log.Panicf("unable to parse address %s: %s", addrTuple.Address, err)
 		}
 
-		newOutputIDs, newOutputs, timelocks := generateVestingOutputs(
+		newOutputIDs, newOutputs := generateVestingOutputs(
 			cfg, targetAddr, alloc, mustParseUint64(addrTuple.Tokens), supplyIncreaseMarker, currentOutputIndex,
 		)
 
-		unlockAccumBalance[0] += newOutputs[0].Deposit()
-		for i, timelock := range timelocks {
-			unlockAccumBalance[timelock.UnixTime] += newOutputs[i+1].Deposit()
+		for _, output := range newOutputs {
+			var timelockUnixTime uint32
+			if output.UnlockConditionSet().Timelock() != nil {
+				timelockUnixTime = output.UnlockConditionSet().Timelock().UnixTime
+			}
+
+			unlockAccumBalance[timelockUnixTime] += output.Deposit()
 		}
 
 		outputIDs = append(outputIDs, newOutputIDs...)
@@ -938,21 +942,44 @@ var refNonTimelockedbasicOutput = &iotago3.BasicOutput{
 func generateVestingOutputs(
 	cfg *Config, target iotago3.Address, alloc Allocation,
 	vestedTokens uint64, supplyIncreaseMarker []byte, outputIndex *uint32,
-) ([]iotago3.OutputID, []iotago3.Output, []*iotago3.TimelockUnlockCondition) {
+) ([]iotago3.OutputID, []iotago3.Output) {
+
+	var controlSum uint64
+	outputs := make([]iotago3.Output, 0)
+	outputIDs := make([]iotago3.OutputID, 0)
+
+	addOutput := func(deposit uint64, minDeposit uint64, timelock *iotago3.TimelockUnlockCondition) (remainder uint64) {
+		// check if we reach the minimum required dust deposit for the output
+		if deposit < minDeposit {
+			// return the whole deposit as remainder because we didn't add the output
+			return deposit
+		}
+
+		controlSum += deposit
+		unlockConditions := iotago3.UnlockConditions{
+			&iotago3.AddressUnlockCondition{Address: target},
+		}
+		if timelock != nil {
+			// a timelock was passed, add it to the unlockConditions
+			unlockConditions = append(unlockConditions, timelock)
+		}
+
+		outputs = append(outputs, &iotago3.BasicOutput{
+			Amount:     deposit,
+			Conditions: unlockConditions,
+		})
+		outputIDs = append(outputIDs, newOutputIDFromMarker(supplyIncreaseMarker, outputIndex))
+
+		// return no remainder because we added the output
+		return 0
+	}
 
 	// no vesting due to 100% initial unlock
 	if alloc.Unlocks.InitialUnlock == 1 {
-		outputIDs := []iotago3.OutputID{newOutputIDFromMarker(supplyIncreaseMarker, outputIndex)}
-		outputs := []iotago3.Output{
-			&iotago3.BasicOutput{
-				Amount:     vestedTokens,
-				Conditions: iotago3.UnlockConditions{&iotago3.AddressUnlockCondition{Address: target}},
-			},
-		}
-		return outputIDs, outputs, make([]*iotago3.TimelockUnlockCondition, 0)
+		addOutput(vestedTokens, 0, nil)
+		return outputIDs, outputs
 	}
 
-	var controlSum uint64
 	investorTimelocks := vestingTimelocks(alloc, cfg.Vesting.StartingDate)
 	initialUnlock := uint64(float64(vestedTokens) * alloc.Unlocks.InitialUnlock)
 
@@ -960,38 +987,49 @@ func generateVestingOutputs(
 	initialUnlock += (vestedTokens - initialUnlock) % uint64(len(investorTimelocks))
 	fundsPerUnlock := (vestedTokens - initialUnlock) / uint64(len(investorTimelocks))
 
-	// if fundsPerUnlock is 0, then we only have the initialUnlock
-	if fundsPerUnlock == 0 {
-		investorTimelocks = make([]*iotago3.TimelockUnlockCondition, 0)
-	}
+	// add initial unlock output in case it covers the "MinCostPerNonTimelockedBasicOutput"
+	dustRemainder := addOutput(initialUnlock, cfg.MinCostPerNonTimelockedBasicOutput, nil)
 
-	// initial unlock output
-	outputIDs := []iotago3.OutputID{newOutputIDFromMarker(supplyIncreaseMarker, outputIndex)}
-	outputs := []iotago3.Output{
-		&iotago3.BasicOutput{
-			Amount:     initialUnlock,
-			Conditions: iotago3.UnlockConditions{&iotago3.AddressUnlockCondition{Address: target}},
-		},
-	}
-	controlSum += initialUnlock
-
+	// add vesting outputs in case they cover the "MinCostPerTimelockedBasicOutput",
+	// otherwise sum up the funds and check again for the next timelock period.
 	for i := 0; i < len(investorTimelocks); i++ {
-		outputID := newOutputIDFromMarker(supplyIncreaseMarker, outputIndex)
-		outputIDs = append(outputIDs, outputID)
-		outputs = append(outputs, &iotago3.BasicOutput{
-			Amount: fundsPerUnlock,
-			Conditions: iotago3.UnlockConditions{
-				&iotago3.AddressUnlockCondition{Address: target}, investorTimelocks[i],
-			},
-		})
-		controlSum += fundsPerUnlock
+		dustRemainder = addOutput(dustRemainder+fundsPerUnlock, cfg.MinCostPerTimelockedBasicOutput, investorTimelocks[i])
+	}
+
+	// add the remaining dust to the last created output
+	if dustRemainder > 0 {
+		if len(outputs) != 0 {
+			// get the last created output
+			lastOutput := outputs[len(outputs)-1]
+
+			// add the remaining dust
+			amount := lastOutput.Deposit() + dustRemainder
+			controlSum += dustRemainder
+
+			// copy the unlock conditions
+			unlockConditions := iotago3.UnlockConditions{
+				lastOutput.UnlockConditionSet().Address(),
+			}
+			if lastOutput.UnlockConditionSet().Timelock() != nil {
+				unlockConditions = append(unlockConditions, lastOutput.UnlockConditionSet().Timelock())
+			}
+
+			// replace the existing entry with the modified output, outputID stays the same
+			outputs[len(outputs)-1] = &iotago3.BasicOutput{
+				Amount:     amount,
+				Conditions: unlockConditions,
+			}
+		} else {
+			// if there was no output created yet, we add all funds to the last possible timelock planned
+			addOutput(dustRemainder, 0, investorTimelocks[len(investorTimelocks)-1])
+		}
 	}
 
 	if controlSum != vestedTokens {
 		log.Panicf("control sum for vested outputs is not equal defined token amount: %d vs. %d", controlSum, vestedTokens)
 	}
 
-	return outputIDs, outputs, investorTimelocks
+	return outputIDs, outputs
 }
 
 func newOutputIDFromMarker(supplyIncreaseMarker []byte, outputIndex *uint32) iotago3.OutputID {
