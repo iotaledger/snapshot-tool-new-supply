@@ -101,7 +101,7 @@ type AddrBalanceTuple struct {
 }
 
 var (
-	dayDuration      = time.Duration(time.Hour * 24)
+	dayDuration      = time.Hour * 24
 	weeklyDuration   = dayDuration * 7
 	biWeeklyDuration = weeklyDuration * 2
 	monthlyDuration  = dayDuration * 30
@@ -374,7 +374,7 @@ func main() {
 		log.Panicf("the given TreasuryTokens (%d) in the config do not match the TreasuryOutput (%d) in the snapshot", treasuryTokens, chrysalisSnapshot.TreasuryOutput.Amount)
 	}
 
-	genesisMilestoneIndex := iotago3.MilestoneIndex(chrysalisSnapshot.Header.LedgerMilestoneIndex)
+	genesisMilestoneIndex := chrysalisSnapshot.Header.LedgerMilestoneIndex
 	genesisMilestoneTimestamp := uint32(chrysalisSnapshot.Header.Timestamp)
 
 	// create snapshot file
