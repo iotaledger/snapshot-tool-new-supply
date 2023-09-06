@@ -13,7 +13,7 @@
     "tokenSupply": "2539517412586458"
   },
   "validateSupply": true,
-  "treasuryTokens": "100000",
+  "treasuryTokens": "0",
   "snapshot": {
     "skipSnapshotGeneration": false,
     "chrysalisSnapshotFile": "7143515_full.bin",
@@ -47,7 +47,7 @@
           {
             "name": "Treasury DAO",
             "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
-            "tokens": "214632885"
+            "tokens": "62560976001027"
           }
         ]
       },
@@ -96,19 +96,129 @@
         },
         "addresses": [
           {
-            "name": "Quantum Leap Capital",
-            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2",
-            "tokens": "1000"
+            "name": "Investor 1",
+            "tokens": "36030948112963",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
           },
           {
-            "name": "Horizon Growth Partners",
-            "address": "rms1qpt2h8sm6sua8kqjdhqg0y4frwufyv38dq7g9av6r7cxjf6fw58nyk6plmc",
-            "tokens": "3000"
+            "name": "Investor 2",
+            "tokens": "9007737028241",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
           },
           {
-            "name": "Vanguard Vision Ventures",
-            "address": "rms1qrg78htnrw9asru2ahksx7z77asmx022a8e78035jhtdcw7kud3qjnafh0l",
-            "tokens": "5000"
+            "name": "Investor 3",
+            "tokens": "27023211084722",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 4",
+            "tokens": "9007737028241",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 5",
+            "tokens": "6305415919769",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 6",
+            "tokens": "4828147047137",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 7",
+            "tokens": "2378042575456",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 8",
+            "tokens": "18015474056482",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 9",
+            "tokens": "2702321108472",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 10",
+            "tokens": "9007737028241",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 11",
+            "tokens": "4503868514120",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 12",
+            "tokens": "4503868514120",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 13",
+            "tokens": "4503868514120",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 14",
+            "tokens": "2251934257060",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 15",
+            "tokens": "2702321108472",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 16",
+            "tokens": "1801547405648",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 17",
+            "tokens": "900773702824",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 18",
+            "tokens": "900773702824",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 19",
+            "tokens": "900773702824",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 20",
+            "tokens": "1621392665083",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 21",
+            "tokens": "1801547405648",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 22",
+            "tokens": "2251934257060",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 23",
+            "tokens": "1351160554236",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 24",
+            "tokens": "3332862700449",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
+          },
+          {
+            "name": "Investor 25",
+            "tokens": "4503868514120",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2"
           }
         ]
       },

@@ -370,9 +370,6 @@ func main() {
 	if uint64(cfg.Snapshot.TargetMilestoneTimestamp) != chrysalisSnapshot.Header.Timestamp {
 		log.Panicf("the given TargetMilestoneTimestamp (%d) in the config does not match the Timestamp (%d) in the snapshot", cfg.Snapshot.TargetMilestoneTimestamp, chrysalisSnapshot.Header.Timestamp)
 	}
-	if treasuryTokens != chrysalisSnapshot.TreasuryOutput.Amount {
-		log.Panicf("the given TreasuryTokens (%d) in the config do not match the TreasuryOutput (%d) in the snapshot", treasuryTokens, chrysalisSnapshot.TreasuryOutput.Amount)
-	}
 
 	genesisMilestoneIndex := chrysalisSnapshot.Header.LedgerMilestoneIndex
 	genesisMilestoneTimestamp := uint32(chrysalisSnapshot.Header.Timestamp)
