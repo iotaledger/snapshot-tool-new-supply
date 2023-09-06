@@ -1,0 +1,202 @@
+{
+  "protocolParameters": {
+    "version": 2,
+    "networkName": "stardust-mainnet-pre1",
+    "bech32Hrp": "iota",
+    "minPowScore": 1500,
+    "belowMaxDepth": 15,
+    "rentStructure": {
+      "vByteCost": 100,
+      "vBFactorData": 1,
+      "vBFactorKey": 10
+    },
+    "tokenSupply": "2941745380779015"
+  },
+  "validateSupply": true,
+  "treasuryTokens": "0",
+  "snapshot": {
+    "skipSnapshotGeneration": false,
+    "chrysalisSnapshotFile": "7143515_full.bin",
+    "outputSnapshotFile": "the_merge_snapshot.bin",
+    "genesisMilestoneIndex": 7143515,
+    "ledgerMilestoneIndex": 7143515,
+    "targetMilestoneIndex": 7143515,
+    "targetMilestoneTimestamp": 1691134625
+  },
+  "csv": {
+    "export": {
+      "active": true,
+      "dir": "./exports"
+    },
+    "import": {
+      "active": true,
+      "outputMarker": "testOutputs",
+      "ledgerFile": "./import.csv"
+    }
+  },
+  "vesting": {
+    "startDate": "2023-07-01T00:00:00+00:00",
+    "outputMarker": "themerge",
+    "allocations": [
+      {
+        "name": "treasury_dao",
+        "unlocks": {
+          "initialUnlock": 1
+        },
+        "addresses": [
+          {
+            "name": "Treasury DAO",
+            "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
+            "tokens": "240069989541330"
+          }
+        ]
+      },
+      {
+        "name": "assembly_stakers",
+        "unlocks": {
+          "frequency": "bi-weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 2
+        },
+        "rewards": {
+          "tokens": "162139267000000",
+          "dir": "./assembly_staking_rewards"
+        }
+      },
+      {
+        "name": "assembly_if_members",
+        "unlocks": {
+          "frequency": "bi-weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 2
+        },
+        "distribution": {
+          "exclude": {
+            "111111111111111111111111111111111111111111111": 0,
+            "15DpUfbwyUp4niU5aHFLRMYpMk82H2nEnQaYDF3i4JqSE": 0,
+            "16JCcPVjZJBgsZVaXHhkeZYq2aTMSTp4ebsZ3r3cHHGjf": 0,
+            "1ADjVz6uzJVjcGmwDnBvqbtsvrLS6TBHX3W6eeXR3fpH3": 0,
+            "1FfnG7Yf4yUzrnLoNGaUnF6ZTR2br5C9CuEqQJFKgM96y": 0,
+            "1DStxnJAqErJM5Z9MTTvTXH4yDb2xu6r3QDJWdpWzcA52": 0,
+            "17NhqHggKcAtvfcAXudmrKYcXFuwpjK4n5c6JC6esxmR": 0,
+            "1H429rgKCzczRX69UtPzePUG29SuQgqGsv3b9J3bhPYrf": 0,
+            "1Hnz6sPSSPRagyBVJ4h98nJwSkVaZZWqsqGHe8983aVBj": 0,
+            "13jCg6KWQRJYRyCLJWvhRqE7ZBXu8n86gvWKidMcwc1fU": 0
+          },
+          "tokens": "10000000000",
+          "file": "./assembly_distribution.json"
+        }
+      },
+      {
+        "name": "assembly_investors",
+        "unlocks": {
+          "frequency": "bi-weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 2
+        },
+        "addresses": [
+          {
+            "name": "Quantum Leap Capital",
+            "address": "rms1qzllyymwdnvz4xcj6rgvl4wqkjaatspjm0w3akfncsck7y02l83tjaedpu2",
+            "tokens": "1000"
+          },
+          {
+            "name": "Horizon Growth Partners",
+            "address": "rms1qpt2h8sm6sua8kqjdhqg0y4frwufyv38dq7g9av6r7cxjf6fw58nyk6plmc",
+            "tokens": "3000"
+          },
+          {
+            "name": "Vanguard Vision Ventures",
+            "address": "rms1qrg78htnrw9asru2ahksx7z77asmx022a8e78035jhtdcw7kud3qjnafh0l",
+            "tokens": "5000"
+          }
+        ]
+      },
+      {
+        "name": "funding_investors",
+        "unlocks": {
+          "frequency": "bi-weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 2
+        },
+        "addresses": [
+          {
+            "name": "Eclipse Equity Partners",
+            "address": "rms1qp3whxy4ym7mrpzecgxyem2ude2vxt2mx89m2me296en8lryddr7juycfnm",
+            "tokens": "2000"
+          },
+          {
+            "name": "Catalyst Capital Group",
+            "address": "rms1qpn5vna9yllp6skk4s6zxwjerz3et80m8cmf3f555qzrukgcru36gfjztjw",
+            "tokens": "4000"
+          },
+          {
+            "name": "Nebula Nexus Investments",
+            "address": "rms1qrh6rh4sfjj90853vzsvcu5556yt9m7rzzqe7ru9cept3gr2j5mqv7a4ehf",
+            "tokens": "6000"
+          }
+        ]
+      },
+      {
+        "name": "ecosystem_fund",
+        "unlocks": {
+          "frequency": "bi-weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 4
+        },
+        "addresses": [
+          {
+            "name": "Ecosystem Fund",
+            "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
+            "tokens": "1352187178"
+          }
+        ]
+      },
+      {
+        "name": "iota_foundation",
+        "unlocks": {
+          "frequency": "bi-weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 4
+        },
+        "addresses": [
+          {
+            "name": "IOTA Foundation",
+            "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
+            "tokens": "214632885"
+          }
+        ]
+      },
+      {
+        "name": "mock_investor_1",
+        "unlocks": {
+          "frequency": "bi-weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 4
+        },
+        "addresses": [
+          {
+            "name": "Mock Investor 1",
+            "address": "rms1qphkga63473l048x23klmf3hnwtvtvu8wz0q87kd6yj2nrytdkq5chl9nqu",
+            "tokens": "824982479"
+          }
+        ]
+      },
+      {
+        "name": "mock_investor_2",
+        "unlocks": {
+          "frequency": "bi-weekly",
+          "initialUnlock": 0.10,
+          "vestingPeriodYears": 4
+        },
+        "addresses": [
+          {
+            "name": "Mock Investor 2",
+            "address": "rms1qq8sp0w3mft33u8a29rztdrczvwpachl9talcjgqehhk4dsdl33psfh96ux",
+            "tokens": "85106127"
+          }
+        ]
+      }
+    ]
+  }
+}
