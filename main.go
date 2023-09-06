@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -276,13 +277,15 @@ type ChrysalisSnapshotMetadata struct {
 }
 
 func main() {
-	args := os.Args[1:]
-	if len(args) == 1 {
-		os.Exit(1)
-	}
+	// Define a string flag for the config file, with a default value of "config.json"
+	configFile := flag.String("configFile", "./config.json", "Path to the config file")
 
+	// Parse the command-line flags
+	flag.Parse()
+
+	// Read the config file
 	cfg := &Config{}
-	if err := ioutils.ReadJSONFromFile("./config.json", cfg); err != nil {
+	if err := ioutils.ReadJSONFromFile(*configFile, cfg); err != nil {
 		log.Panicf("unable to read config file: %s", err)
 	}
 
