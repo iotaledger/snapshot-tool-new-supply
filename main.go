@@ -546,7 +546,7 @@ func generateCSVOutputs(cfg *Config) ([]iotago3.OutputID, []iotago3.Output) {
 
 	var currentOutputIndex uint32
 	outputMarker := blake2b.Sum256([]byte(cfg.CSV.Import.OutputMarker))
-	log.Printf("using marker '%s' to mark CSV import outputs", iotago3.EncodeHex(outputMarker[:len(outputMarker)-2]))
+	log.Printf("using marker '%s' to mark CSV import outputs", iotago3.EncodeHex(outputMarker[:len(outputMarker)-4]))
 
 	rows, err := csv.NewReader(csvImportFile).ReadAll()
 	if err != nil {
@@ -604,7 +604,7 @@ func generateNewSupplyOutputs(cfg *Config) ([]iotago3.OutputID, []iotago3.Output
 
 	var currentOutputIndex uint32
 	outputMarker := blake2b.Sum256([]byte(cfg.Vesting.OutputMarker))
-	log.Printf("using marker '%s' to mark supply increase outputs", iotago3.EncodeHex(outputMarker[:len(outputMarker)-2]))
+	log.Printf("using marker '%s' to mark supply increase outputs", iotago3.EncodeHex(outputMarker[:len(outputMarker)-4]))
 
 	for _, alloc := range cfg.Vesting.Allocations {
 		switch {
@@ -997,8 +997,9 @@ func generateVestingOutputs(
 func newOutputIDFromMarker(supplyIncreaseMarker []byte, outputIndex *uint32) iotago3.OutputID {
 	outputID := iotago3.OutputID{}
 	// 30 bytes marker, 4 bytes for index
-	copy(outputID[:], supplyIncreaseMarker[:len(supplyIncreaseMarker)-2])
-	binary.LittleEndian.PutUint32(outputID[len(outputID)-4:], *outputIndex)
+	copy(outputID[:], supplyIncreaseMarker[:len(supplyIncreaseMarker)-4])
+	binary.LittleEndian.PutUint32(outputID[len(outputID)-6:], *outputIndex)
+	binary.LittleEndian.PutUint16(outputID[len(outputID)-2:], 0)
 	*outputIndex += 1
 	return outputID
 }
