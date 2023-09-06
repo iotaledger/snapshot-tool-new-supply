@@ -10,10 +10,10 @@
       "vBFactorData": 1,
       "vBFactorKey": 10
     },
-    "tokenSupply": "2941746290877621"
+    "tokenSupply": "2941746290867621"
   },
   "validateSupply": true,
-  "treasuryTokens": "240069989541330",
+  "treasuryTokens": "0",
   "snapshot": {
     "skipSnapshotGeneration": false,
     "chrysalisSnapshotFile": "7143515_full.bin",
@@ -47,7 +47,7 @@
           {
             "name": "Treasury DAO",
             "address": "rms1qphw559p2xvswf4tsdg7yx8ux5ychn73z5tlvf7uxxu9lfdg6n527pv379e",
-            "tokens": "10000"
+            "tokens": "240069989541330"
           }
         ]
       },
