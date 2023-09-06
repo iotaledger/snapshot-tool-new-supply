@@ -996,7 +996,7 @@ func generateVestingOutputs(
 
 func newOutputIDFromMarker(supplyIncreaseMarker []byte, outputIndex *uint32) iotago3.OutputID {
 	outputID := iotago3.OutputID{}
-	// 30 bytes marker, 4 bytes for index
+	// 28 bytes marker, 4 bytes for index, 2 bytes for outputIndex
 	copy(outputID[:], supplyIncreaseMarker[:len(supplyIncreaseMarker)-4])
 	binary.LittleEndian.PutUint32(outputID[len(outputID)-6:], *outputIndex)
 	binary.LittleEndian.PutUint16(outputID[len(outputID)-2:], 0)
