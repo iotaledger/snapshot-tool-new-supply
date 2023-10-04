@@ -16,12 +16,12 @@
   "treasuryTokens": "0",
   "snapshot": {
     "skipSnapshotGeneration": false,
-    "chrysalisSnapshotFile": "7143515_full.bin",
+    "chrysalisSnapshotFile": "global_snapshot-7669900.bin",
     "outputSnapshotFile": "the_merge_snapshot.bin",
-    "genesisMilestoneIndex": 7143515,
-    "ledgerMilestoneIndex": 7143515,
-    "targetMilestoneIndex": 7143515,
-    "targetMilestoneTimestamp": 1691134625
+    "genesisMilestoneIndex": 7669900,
+    "ledgerMilestoneIndex": 7669900,
+    "targetMilestoneIndex": 7669900,
+    "targetMilestoneTimestamp": 1696399275
   },
   "export": {
     "active": true,
@@ -49,7 +49,7 @@
           {
             "name": "Treasury_DAO",
             "address": "iota1qz2njf2m4wyp6hxz9cs296yfnpdclegh7c6dqcrux5zcjg2cxwrvjlu5cyr",
-            "tokens": "62,560,976,001,027"
+            "tokens": "62,560,976,001,028"
           }
         ]
       },
@@ -62,7 +62,7 @@
           {
             "name": "Unmigrated_Legacy_Tokens",
             "address": "iota1qzae4clf9lfsyrvvlemve92d5nda9vs088rswljtgyy5zr50zfs9wqlw0kr",
-            "tokens": "175,937,207,145,527"
+            "tokens": "175,893,692,656,112"
           }
         ]
       },
